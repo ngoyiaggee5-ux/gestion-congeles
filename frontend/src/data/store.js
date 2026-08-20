@@ -187,7 +187,6 @@ const seed = () => ({
   settings: {
     font: "dm-sans",
     theme: "light",
-    tvaRate: 16,
     currency: "CDF",
     usdRate: 2800,
   },
@@ -246,10 +245,14 @@ function migrateUsers(data) {
     data.settings = {
       font: "dm-sans",
       theme: "light",
-      tvaRate: 16,
       currency: "CDF",
       usdRate: 2800,
     };
+    changed = true;
+  }
+
+  if ("tvaRate" in data.settings) {
+    delete data.settings.tvaRate;
     changed = true;
   }
 

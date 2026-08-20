@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
+import SmartInsights from "../components/SmartInsights";
 import { useApp } from "../data/AppContext";
 
 export default function Dashboard() {
@@ -43,6 +44,8 @@ export default function Dashboard() {
         title="Tableau de bord"
         subtitle="Vue d’ensemble de votre congélateur commercial MBALA KWA SELEMANI."
       />
+
+      <SmartInsights />
 
       <div className="stat-grid mb-4">
         <div className="stat-card">

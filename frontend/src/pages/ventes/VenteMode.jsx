@@ -1,11 +1,39 @@
+import { useMemo, useState } from "react";
 import { Button, Card, Col, Row, Badge } from "react-bootstrap";
 import PageHeader from "../../components/PageHeader";
+import SmartSuggest from "../../components/SmartSuggest";
 import { useApp } from "../../data/AppContext";
 import { Link } from "react-router-dom";
 
 export default function VenteMode({ mode }) {
-  const { data, addToCart, formatMoney, getCategoryName } = useApp();
+  const { data, addToCart, formatMoney, getCategoryName, suggestProducts } =
+    useApp();
+  const [query, setQuery] = useState("");
   const isGros = mode === "gros";
+
+  const suggestions = useMemo(
+    () =>
+      suggestProducts(query, mode).map((item) => ({
+        ...item,
+        price: formatMoney(item.price),
+      })),
+    [suggestProducts, query, mode, formatMoney]
+  );
+
+  const visibleProducts = useMemo(() => {
+    if (!query.trim()) return data.products;
+    return suggestProducts(query, mode)
+      .map((item) => data.products.find((p) => p.id === item.id))
+      .filter(Boolean);
+  }, [data.products, query, mode, suggestProducts]);
+
+  const pickProduct = (item) => {
+    const product = data.products.find((p) => p.id === item.id);
+    if (product?.stock > 0) {
+      addToCart(product.id, 1, mode);
+      setQuery("");
+    }
+  };
 
   return (
     <>
@@ -13,17 +41,30 @@ export default function VenteMode({ mode }) {
         title={isGros ? "Vente en gros" : "Vente au détail"}
         subtitle={
           isGros
-            ? "Tarifs grossiste pour les clients professionnels."
-            : "Caisse rapide pour la vente unitaire."
+            ? "Recherche intelligente — produits populaires et disponibles en priorité."
+            : "Caisse rapide avec suggestions produits."
         }
         actions={
-          <Button as={Link} to="/ventes/panier" className="btn-vf">
+          <Button as={Link} to="/ventes/panier" className="btn-vf btn-modern">
             Voir le panier
           </Button>
         }
       />
+
+      <div className="panel mb-4">
+        <SmartSuggest
+          label="Rechercher un produit"
+          value={query}
+          onChange={setQuery}
+          onSelect={pickProduct}
+          suggestions={suggestions}
+          placeholder="Nom, SKU ou catégorie…"
+          emptyText="Aucun produit correspondant"
+        />
+      </div>
+
       <Row className="g-3">
-        {data.products.map((p) => (
+        {visibleProducts.map((p) => (
           <Col key={p.id} md={6} xl={4}>
             <Card className="h-100 border-0 shadow-sm" style={{ borderRadius: 16 }}>
               <Card.Body>
@@ -45,7 +86,7 @@ export default function VenteMode({ mode }) {
                   {formatMoney(isGros ? p.price_wholesale : p.price_retail)}
                 </div>
                 <Button
-                  className="btn-vf w-100"
+                  className="btn-vf btn-modern w-100"
                   disabled={p.stock <= 0}
                   onClick={() => addToCart(p.id, 1, mode)}
                 >
@@ -55,6 +96,11 @@ export default function VenteMode({ mode }) {
             </Card>
           </Col>
         ))}
+        {!visibleProducts.length && (
+          <Col xs={12}>
+            <div className="empty-state">Aucun produit trouvé pour cette recherche.</div>
+          </Col>
+        )}
       </Row>
     </>
   );

@@ -1,23 +1,29 @@
 import { Table, Form } from "react-bootstrap";
 import { useMemo, useState } from "react";
 import PageHeader from "../../components/PageHeader";
+import SmartSuggest from "../../components/SmartSuggest";
 import { useApp } from "../../data/AppContext";
 
 export default function StockDisponible() {
-  const { data, getCategoryName, stockStatus, formatMoney } = useApp();
+  const { data, getCategoryName, stockStatus, formatMoney, suggestProducts } =
+    useApp();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
 
+  const suggestions = useMemo(
+    () => suggestProducts(q, "détail"),
+    [suggestProducts, q]
+  );
+
   const rows = useMemo(() => {
-    return data.products.filter((p) => {
-      const matchQ =
-        !q ||
-        p.name.toLowerCase().includes(q.toLowerCase()) ||
-        p.sku.toLowerCase().includes(q.toLowerCase());
-      const matchCat = !cat || String(p.category_id) === cat;
-      return matchQ && matchCat;
-    });
-  }, [data.products, q, cat]);
+    const base = q.trim()
+      ? suggestProducts(q, "détail")
+          .map((item) => data.products.find((p) => p.id === item.id))
+          .filter(Boolean)
+      : data.products;
+
+    return base.filter((p) => !cat || String(p.category_id) === cat);
+  }, [data.products, q, cat, suggestProducts]);
 
   return (
     <>
@@ -27,12 +33,16 @@ export default function StockDisponible() {
       />
       <div className="panel">
         <div className="d-flex flex-wrap gap-2 mb-3">
-          <Form.Control
-            style={{ maxWidth: 280 }}
-            placeholder="Rechercher…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
+          <div style={{ flex: "1 1 280px", maxWidth: 420 }}>
+            <SmartSuggest
+              value={q}
+              onChange={setQ}
+              onSelect={(item) => setQ(item.label)}
+              suggestions={suggestions}
+              placeholder="Recherche intelligente produit / SKU…"
+              emptyText="Aucun produit trouvé"
+            />
+          </div>
           <Form.Select
             style={{ maxWidth: 220 }}
             value={cat}

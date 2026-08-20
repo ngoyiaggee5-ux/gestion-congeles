@@ -13,9 +13,13 @@ import {
 } from "./store";
 import {
   formatMoney as formatMoneyUtil,
-  calcTotals as calcTotalsUtil,
   applyAppearance,
 } from "../utils/settings";
+import {
+  suggestClients,
+  suggestProducts,
+  getSmartInsights as buildSmartInsights,
+} from "../utils/suggestions";
 
 const AppContext = createContext(null);
 
@@ -63,8 +67,6 @@ export function AppProvider({ children }) {
         setCurrentUser(null);
       },
       formatMoney: (value) => formatMoneyUtil(value, data.settings),
-      calcTotals: (subtotalHt) =>
-        calcTotalsUtil(subtotalHt, data.settings?.tvaRate ?? 16),
       formatDate,
       getCategoryName: (id) => getCategoryName(data, id),
       getProduct: (id) => getProduct(data, id),
@@ -79,6 +81,10 @@ export function AppProvider({ children }) {
           d.settings = { ...d.settings, ...partial };
           return d;
         }),
+      suggestClients: (query, saleType) =>
+        suggestClients(data, query, saleType),
+      suggestProducts: (query, mode) => suggestProducts(data, query, mode),
+      getSmartInsights: () => buildSmartInsights(data, stockStatus),
       stockStatus,
       addCategory: (payload) =>
         mutate((d) => {
@@ -244,13 +250,10 @@ export function AppProvider({ children }) {
             const product = d.products.find((p) => p.id === item.product_id);
             if (!product || product.stock < item.quantity) return d;
           }
-          const subtotalHt = items.reduce(
+          const total = items.reduce(
             (sum, i) => sum + i.quantity * i.unit_price,
             0
           );
-          const tvaRate = d.settings?.tvaRate ?? 16;
-          const tva = subtotalHt * (tvaRate / 100);
-          const total = subtotalHt + tva;
           const resolvedClientId = Number(client_id) || null;
           const resolvedClientName =
             client_name?.trim() ||
@@ -271,9 +274,6 @@ export function AppProvider({ children }) {
             })),
             payment_method,
             status: "payée",
-            subtotal_ht: subtotalHt,
-            tva_rate: tvaRate,
-            tva_amount: tva,
             total,
             created_at: new Date().toISOString(),
           });
@@ -299,9 +299,6 @@ export function AppProvider({ children }) {
             sale_id: saleId,
             client_id: resolvedClientId,
             client_name: resolvedClientName,
-            subtotal_ht: subtotalHt,
-            tva_rate: tvaRate,
-            tva_amount: tva,
             total,
             status: "émise",
             created_at: new Date().toISOString(),
@@ -321,9 +318,6 @@ export function AppProvider({ children }) {
             sale_id: saleId,
             client_id: sale.client_id,
             client_name: sale.client_name,
-            subtotal_ht: sale.subtotal_ht ?? sale.total,
-            tva_rate: sale.tva_rate ?? d.settings?.tvaRate ?? 16,
-            tva_amount: sale.tva_amount ?? 0,
             total: sale.total,
             status: "émise",
             created_at: new Date().toISOString(),

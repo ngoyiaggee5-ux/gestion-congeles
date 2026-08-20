@@ -23,9 +23,6 @@ export default function ImprimerFacture() {
   );
   const sale = data.sales.find((s) => s.id === invoice?.sale_id);
   const client = getClient(invoice?.client_id);
-  const subtotal = invoice?.subtotal_ht ?? sale?.subtotal_ht ?? invoice?.total ?? 0;
-  const tva = invoice?.tva_amount ?? sale?.tva_amount ?? 0;
-  const tvaRate = invoice?.tva_rate ?? sale?.tva_rate ?? data.settings.tvaRate;
 
   return (
     <>
@@ -88,8 +85,8 @@ export default function ImprimerFacture() {
               <tr>
                 <th>Produit</th>
                 <th>Qté</th>
-                <th>P.U. HT</th>
-                <th>Total HT</th>
+                <th>P.U.</th>
+                <th>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -104,14 +101,8 @@ export default function ImprimerFacture() {
             </tbody>
           </Table>
 
-          <div className="text-end mt-3">
-            <div>Sous-total HT : {formatMoney(subtotal)}</div>
-            <div>
-              TVA ({tvaRate}%) : {formatMoney(tva)}
-            </div>
-            <div className="fs-4 fw-bold mt-2">
-              Total TTC : {formatMoney(invoice.total)}
-            </div>
+          <div className="text-end fs-4 fw-bold mt-3">
+            Total : {formatMoney(invoice.total)}
           </div>
           {sale && (
             <div className="text-end text-muted">
