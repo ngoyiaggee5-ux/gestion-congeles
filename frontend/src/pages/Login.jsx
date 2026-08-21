@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Alert, Button, Form } from "react-bootstrap";
+import { Alert, Form } from "react-bootstrap";
 import Logo from "../components/Logo";
+import VfButton from "../components/VfButton";
 import { useApp } from "../data/AppContext";
 
 export default function Login() {
@@ -63,14 +64,14 @@ export default function Login() {
               autoComplete="current-password"
             />
           </Form.Group>
-          <Button type="submit" className="btn-vf w-100" disabled={loading}>
+          <VfButton type="submit" className="w-100" disabled={loading} icon="bi-shield-lock">
             {loading ? "Connexion…" : "Se connecter"}
-          </Button>
+          </VfButton>
         </Form>
 
         <div className="text-center mt-3">
-          <Button
-            variant="link"
+          <VfButton
+            variant="ghost"
             size="sm"
             className="text-muted"
             onClick={() => {
@@ -82,7 +83,7 @@ export default function Login() {
             }}
           >
             Réinitialiser les données de démo
-          </Button>
+          </VfButton>
         </div>
 
         <div className="login-demo">

@@ -92,7 +92,7 @@ export default function Clients() {
         </Table>
       </div>
 
-      <Modal show={show} onHide={() => setShow(false)} centered>
+      <Modal show={show} onHide={() => setShow(false)} centered className="vf-modal">
         <Form onSubmit={save}>
           <Modal.Header closeButton>
             <Modal.Title>{editId ? "Modifier client" : "Nouveau client"}</Modal.Title>

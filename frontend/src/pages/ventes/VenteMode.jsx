@@ -66,7 +66,7 @@ export default function VenteMode({ mode }) {
       <Row className="g-3">
         {visibleProducts.map((p) => (
           <Col key={p.id} md={6} xl={4}>
-            <Card className="h-100 border-0 shadow-sm" style={{ borderRadius: 16 }}>
+            <Card className="h-100 product-card border-0 shadow-sm">
               <Card.Body>
                 <div className="d-flex justify-content-between align-items-start mb-2">
                   <div>
@@ -82,7 +82,7 @@ export default function VenteMode({ mode }) {
                     {p.stock} {p.unit}
                   </Badge>
                 </div>
-                <div className="fs-5 fw-bold mb-3" style={{ color: "var(--vf-green)" }}>
+                <div className="fs-5 fw-bold mb-3 product-price">
                   {formatMoney(isGros ? p.price_wholesale : p.price_retail)}
                 </div>
                 <Button

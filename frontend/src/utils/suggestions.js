@@ -134,7 +134,8 @@ export function suggestProducts(data, query = "", mode = "détail") {
 
 export function getSmartInsights(data, stockStatus) {
   const insights = [];
-  const lowStock = data.products.filter((p) => stockStatus(p) !== "ok");
+  const outOfStock = data.products.filter((p) => stockStatus(p) === "out");
+  const lowStock = data.products.filter((p) => stockStatus(p) === "low");
   const cartCount = data.cart.reduce((n, i) => n + i.quantity, 0);
   const today = new Date().toISOString().slice(0, 10);
   const todaySales = data.sales.filter((s) => s.created_at.startsWith(today));
@@ -142,7 +143,8 @@ export function getSmartInsights(data, stockStatus) {
   if (cartCount > 0) {
     insights.push({
       type: "info",
-      icon: "bi-cart-check",
+      severity: "info",
+      icon: "bi-cart-check-fill",
       title: "Encaissement en attente",
       text: `${cartCount} article(s) dans le panier peuvent être facturés maintenant.`,
       to: "/ventes/paiement",
@@ -150,12 +152,25 @@ export function getSmartInsights(data, stockStatus) {
     });
   }
 
+  if (outOfStock.length) {
+    insights.push({
+      type: "danger",
+      severity: "rupture",
+      icon: "bi-x-octagon-fill",
+      title: "Rupture de stock",
+      text: `${outOfStock.map((p) => p.name).slice(0, 3).join(", ")}${outOfStock.length > 3 ? " …" : ""}`,
+      to: "/stock/entrees",
+      action: "Réapprovisionner",
+    });
+  }
+
   if (lowStock.length) {
     insights.push({
       type: "warning",
-      icon: "bi-exclamation-triangle",
-      title: "Réapprovisionnement recommandé",
-      text: `${lowStock.map((p) => p.name).slice(0, 3).join(", ")} ${lowStock.length > 3 ? "…" : ""}`,
+      severity: "faible",
+      icon: "bi-exclamation-triangle-fill",
+      title: "Stock faible",
+      text: `${lowStock.map((p) => p.name).slice(0, 3).join(", ")}${lowStock.length > 3 ? " …" : ""}`,
       to: "/stock/entrees",
       action: "Entrée de stock",
     });
@@ -164,7 +179,8 @@ export function getSmartInsights(data, stockStatus) {
   if (todaySales.length === 0 && data.sales.length) {
     insights.push({
       type: "neutral",
-      icon: "bi-lightning",
+      severity: "neutre",
+      icon: "bi-lightning-fill",
       title: "Aucune vente aujourd’hui",
       text: "Lancez une vente au détail ou en gros pour relancer l’activité.",
       to: "/ventes/detail",
@@ -174,6 +190,7 @@ export function getSmartInsights(data, stockStatus) {
     const total = todaySales.reduce((s, sale) => s + sale.total, 0);
     insights.push({
       type: "success",
+      severity: "succes",
       icon: "bi-graph-up-arrow",
       title: `${todaySales.length} vente(s) aujourd’hui`,
       text: `Chiffre du jour en progression — total enregistré.`,
@@ -193,6 +210,7 @@ export function getSmartInsights(data, stockStatus) {
   if (topClient && topClient[1] >= 2) {
     insights.push({
       type: "success",
+      severity: "succes",
       icon: "bi-person-heart",
       title: "Client à privilégier",
       text: `${topClient[0].replace(/^id-\d+$/, "Client enregistré")} revient souvent (${topClient[1]} achats).`,
@@ -215,6 +233,7 @@ export function getSmartInsights(data, stockStatus) {
   if (topProduct) {
     insights.push({
       type: "neutral",
+      severity: "neutre",
       icon: "bi-stars",
       title: "Produit star",
       text: `${topProduct.name} se vend le mieux — pensez à maintenir le stock.`,

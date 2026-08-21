@@ -4,7 +4,7 @@
   "description": "API Laravel — Gestion de congelé MBALA KWA SELEMANI",
   "require": {
     "php": "^8.2",
-    "laravel/framework": "^11.31",
+    "laravel/framework": "^12.0",
     "laravel/sanctum": "^4.0",
     "laravel/tinker": "^2.9"
   },

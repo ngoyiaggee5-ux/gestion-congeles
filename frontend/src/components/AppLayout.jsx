@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
-import { Button, Badge } from "react-bootstrap";
+import { Link, Outlet, useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import VfButton from "./VfButton";
 import { useApp } from "../data/AppContext";
 
 export default function AppLayout() {
@@ -20,39 +20,44 @@ export default function AppLayout() {
       <Sidebar open={open} onClose={() => setOpen(false)} />
       <div className="main-area">
         <header className="topbar">
-          <div className="d-flex align-items-center gap-2">
-            <Button
-              variant="outline-secondary"
+          <div className="d-flex align-items-center gap-3">
+            <VfButton
+              variant="ghost"
               size="sm"
-              className="mobile-toggle"
+              className="mobile-toggle topbar-icon-btn"
               onClick={() => setOpen(true)}
-            >
-              <i className="bi bi-list" />
-            </Button>
-            <div>
-              <div className="fw-semibold">Espace de gestion</div>
-              <small className="text-muted">Stock froid · ventes · facturation</small>
+              icon="bi-list"
+              aria-label="Menu"
+            />
+            <div className="topbar-title-block">
+              <div className="topbar-title">Espace de gestion</div>
+              <small className="topbar-sub">Stock froid · ventes · facturation</small>
             </div>
           </div>
-          <div className="d-flex align-items-center gap-3">
-            <Badge bg="success" pill>
-              Panier · {cartCount}
-            </Badge>
-            <div className="text-end">
-              <div className="fw-semibold" style={{ fontSize: "0.92rem" }}>
-                {currentUser?.name}
+          <div className="topbar-actions">
+            <Link to="/ventes/panier" className="cart-pill">
+              <i className="bi bi-cart3" />
+              <span>Panier</span>
+              {cartCount > 0 && <em>{cartCount}</em>}
+            </Link>
+            <div className="user-chip">
+              <div className="user-avatar">
+                {currentUser?.name?.charAt(0) || "?"}
               </div>
-              <span className="role-pill text-capitalize">{currentUser?.role}</span>
+              <div className="user-meta">
+                <div className="user-name">{currentUser?.name}</div>
+                <span className="role-pill text-capitalize">{currentUser?.role}</span>
+              </div>
             </div>
-            <Button
-              variant="outline-danger"
+            <VfButton
+              variant="danger"
               size="sm"
               className="no-print"
               onClick={handleLogout}
+              icon="bi-box-arrow-right"
             >
-              <i className="bi bi-box-arrow-right me-1" />
               Déconnexion
-            </Button>
+            </VfButton>
           </div>
         </header>
         <main className="page-content">

@@ -1,7 +1,18 @@
+import { useEffect, useState } from "react";
 import { Button, Form, Table } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import PageHeader from "../../components/PageHeader";
 import { useApp } from "../../data/AppContext";
+
+function cartKey(item) {
+  return `${item.product_id}-${item.mode}`;
+}
+
+function commitQty(raw, maxStock) {
+  const parsed = parseInt(String(raw).trim(), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.min(parsed, maxStock);
+}
 
 export default function Panier() {
   const {
@@ -13,10 +24,48 @@ export default function Panier() {
     formatMoney,
   } = useApp();
 
-  const total = data.cart.reduce(
-    (s, i) => s + i.quantity * i.unit_price,
-    0
-  );
+  const [editingQty, setEditingQty] = useState({});
+
+  useEffect(() => {
+    const validKeys = new Set(data.cart.map(cartKey));
+    setEditingQty((prev) => {
+      const next = {};
+      for (const [key, value] of Object.entries(prev)) {
+        if (validKeys.has(key)) next[key] = value;
+      }
+      return next;
+    });
+  }, [data.cart]);
+
+  const commitItemQty = (item, product) => {
+    const key = cartKey(item);
+    const raw = key in editingQty ? editingQty[key] : String(item.quantity);
+    const qty = commitQty(raw, product?.stock || 1);
+    updateCartQty(item.product_id, item.mode, qty);
+    setEditingQty((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const displayQty = (item) => {
+    const key = cartKey(item);
+    return key in editingQty ? editingQty[key] : String(item.quantity);
+  };
+
+  const total = data.cart.reduce((s, i) => {
+    const key = cartKey(i);
+    if (key in editingQty) {
+      const parsed = parseInt(editingQty[key], 10);
+      const qty =
+        editingQty[key] !== "" && Number.isFinite(parsed) && parsed > 0
+          ? parsed
+          : i.quantity;
+      return s + qty * i.unit_price;
+    }
+    return s + i.quantity * i.unit_price;
+  }, 0);
 
   return (
     <>
@@ -63,8 +112,16 @@ export default function Panier() {
             <tbody>
               {data.cart.map((item) => {
                 const product = getProduct(item.product_id);
+                const key = cartKey(item);
+                const shownQty = displayQty(item);
+                const parsedShown = parseInt(shownQty, 10);
+                const lineQty =
+                  shownQty !== "" && Number.isFinite(parsedShown) && parsedShown > 0
+                    ? Math.min(parsedShown, product?.stock || parsedShown)
+                    : item.quantity;
+
                 return (
-                  <tr key={`${item.product_id}-${item.mode}`}>
+                  <tr key={key}>
                     <td className="fw-semibold">{product?.name}</td>
                     <td className="text-capitalize">{item.mode}</td>
                     <td>{formatMoney(item.unit_price)}</td>
@@ -73,17 +130,24 @@ export default function Panier() {
                         type="number"
                         min="1"
                         max={product?.stock || 1}
-                        value={item.quantity}
+                        value={shownQty}
                         onChange={(e) =>
-                          updateCartQty(
-                            item.product_id,
-                            item.mode,
-                            e.target.value
-                          )
+                          setEditingQty((prev) => ({
+                            ...prev,
+                            [key]: e.target.value,
+                          }))
                         }
+                        onBlur={() => commitItemQty(item, product)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        aria-label={`Quantité ${product?.name}`}
                       />
                     </td>
-                    <td>{formatMoney(item.quantity * item.unit_price)}</td>
+                    <td>{formatMoney(lineQty * item.unit_price)}</td>
                     <td className="text-end">
                       <Button
                         size="sm"

@@ -3,7 +3,14 @@ import { Alert, Button, Form, Row, Col } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../../components/PageHeader";
 import SmartSuggest from "../../components/SmartSuggest";
+import CashierCalculator from "../../components/CashierCalculator";
 import { useApp } from "../../data/AppContext";
+import {
+  formatCdf,
+  formatUsd,
+  cdfToUsd,
+  usdToCdf,
+} from "../../utils/settings";
 
 export default function Paiement() {
   const { data, checkout, formatMoney, getProduct, suggestClients } = useApp();
@@ -13,15 +20,41 @@ export default function Paiement() {
   const [clientId, setClientId] = useState("");
   const [clientName, setClientName] = useState("");
   const [method, setMethod] = useState("espèces");
+  const [payCurrency, setPayCurrency] = useState("CDF");
+  const [received, setReceived] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const navigate = useNavigate();
+
+  const settings = data.settings;
+  const usdRate = Number(settings?.usdRate) || 2800;
 
   const items = useMemo(
     () => data.cart.filter((i) => i.mode === type),
     [data.cart, type]
   );
-  const total = items.reduce((s, i) => s + i.quantity * i.unit_price, 0);
+  const totalCdf = items.reduce((s, i) => s + i.quantity * i.unit_price, 0);
+  const totalUsd = cdfToUsd(totalCdf, settings);
+  const receivedNum = parseFloat(received) || 0;
+
+  const change = useMemo(() => {
+    if (payCurrency === "USD") {
+      const changeUsd = receivedNum - totalUsd;
+      return {
+        primary: usdToCdf(changeUsd, settings),
+        primaryLabel: "CDF",
+        secondary: changeUsd,
+        secondaryLabel: "USD",
+      };
+    }
+    const changeCdf = receivedNum - totalCdf;
+    return {
+      primary: changeCdf,
+      primaryLabel: "CDF",
+      secondary: null,
+    };
+  }, [payCurrency, receivedNum, totalCdf, totalUsd, settings]);
+
   const clientSuggestions = useMemo(
     () => suggestClients(clientName, type),
     [suggestClients, clientName, type]
@@ -50,6 +83,16 @@ export default function Paiement() {
       setErr("Veuillez saisir le nom du client.");
       return;
     }
+    if (method === "espèces" && receivedNum > 0) {
+      const insufficient =
+        payCurrency === "USD"
+          ? receivedNum < totalUsd
+          : receivedNum < totalCdf;
+      if (insufficient) {
+        setErr("Montant reçu insuffisant.");
+        return;
+      }
+    }
     for (const item of items) {
       const product = getProduct(item.product_id);
       if (!product || product.stock < item.quantity) {
@@ -72,116 +115,199 @@ export default function Paiement() {
     <>
       <PageHeader
         title="Paiement"
-        subtitle="Encaisser le panier avec suggestions clients intelligentes."
+        subtitle="Encaisser le panier — calculatrice et rendu de monnaie."
       />
-      <div className="panel" style={{ maxWidth: 760 }}>
-        {msg && <Alert variant="success">{msg}</Alert>}
-        {err && <Alert variant="danger">{err}</Alert>}
-        <Form onSubmit={pay}>
-          <Row className="g-3">
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>Type de vente</Form.Label>
-                <Form.Select value={type} onChange={(e) => setType(e.target.value)}>
-                  <option value="détail">Détail</option>
-                  <option value="gros">Gros</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>Client enregistré (optionnel)</Form.Label>
-                <Form.Select
-                  value={clientId}
-                  onChange={(e) => selectClient(e.target.value)}
-                >
-                  <option value="">— Nouveau client —</option>
-                  {data.clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
+      <Row className="g-4">
+        <Col lg={7}>
+          <div className="panel">
+            {msg && <Alert variant="success">{msg}</Alert>}
+            {err && <Alert variant="danger">{err}</Alert>}
+            <Form onSubmit={pay}>
+              <Row className="g-3">
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label>Type de vente</Form.Label>
+                    <Form.Select
+                      value={type}
+                      onChange={(e) => setType(e.target.value)}
+                    >
+                      <option value="détail">Détail</option>
+                      <option value="gros">Gros</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label>Client enregistré (optionnel)</Form.Label>
+                    <Form.Select
+                      value={clientId}
+                      onChange={(e) => selectClient(e.target.value)}
+                    >
+                      <option value="">— Nouveau client —</option>
+                      {data.clients.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col xs={12}>
+                  <SmartSuggest
+                    label="Nom du client *"
+                    value={clientName}
+                    onChange={(value) => {
+                      setClientName(value);
+                      if (clientId) setClientId("");
+                    }}
+                    onSelect={pickSuggestion}
+                    suggestions={clientSuggestions}
+                    placeholder="Tapez un nom — clients fidèles et récents en premier"
+                    required
+                    emptyText="Aucun client trouvé — vous pouvez saisir un nouveau nom"
+                  />
+                </Col>
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label>Mode de paiement</Form.Label>
+                    <Form.Select
+                      value={method}
+                      onChange={(e) => setMethod(e.target.value)}
+                    >
+                      <option value="espèces">Espèces</option>
+                      <option value="mobile money">Mobile Money</option>
+                      <option value="carte">Carte</option>
+                      <option value="crédit">Crédit</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              {!clientName && clientSuggestions.length > 0 && (
+                <div className="quick-suggest-row mt-3">
+                  <span className="text-muted small me-2">Suggestions :</span>
+                  {clientSuggestions.slice(0, 3).map((item) => (
+                    <button
+                      key={`${item.name}-${item.id}`}
+                      type="button"
+                      className="quick-suggest-chip"
+                      onClick={() => pickSuggestion(item)}
+                    >
+                      {item.name}
+                    </button>
                   ))}
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col xs={12}>
-              <SmartSuggest
-                label="Nom du client *"
-                value={clientName}
-                onChange={(value) => {
-                  setClientName(value);
-                  if (clientId) setClientId("");
-                }}
-                onSelect={pickSuggestion}
-                suggestions={clientSuggestions}
-                placeholder="Tapez un nom — clients fidèles et récents en premier"
-                required
-                emptyText="Aucun client trouvé — vous pouvez saisir un nouveau nom"
-              />
-            </Col>
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>Mode de paiement</Form.Label>
-                <Form.Select
-                  value={method}
-                  onChange={(e) => setMethod(e.target.value)}
-                >
-                  <option value="espèces">Espèces</option>
-                  <option value="mobile money">Mobile Money</option>
-                  <option value="carte">Carte</option>
-                  <option value="crédit">Crédit</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-          </Row>
+                </div>
+              )}
 
-          {!clientName && clientSuggestions.length > 0 && (
-            <div className="quick-suggest-row mt-3">
-              <span className="text-muted small me-2">Suggestions :</span>
-              {clientSuggestions.slice(0, 3).map((item) => (
-                <button
-                  key={`${item.name}-${item.id}`}
-                  type="button"
-                  className="quick-suggest-chip"
-                  onClick={() => pickSuggestion(item)}
-                >
-                  {item.name}
-                </button>
-              ))}
-            </div>
-          )}
+              <ul className="mt-3 mb-0">
+                {items.map((i) => (
+                  <li key={`${i.product_id}-${i.mode}`}>
+                    {getProduct(i.product_id)?.name} × {i.quantity} —{" "}
+                    {formatMoney(i.quantity * i.unit_price)}
+                  </li>
+                ))}
+                {!items.length && (
+                  <li className="text-muted">Aucun article pour ce type.</li>
+                )}
+              </ul>
 
-          <ul className="mt-3 mb-0">
-            {items.map((i) => (
-              <li key={`${i.product_id}-${i.mode}`}>
-                {getProduct(i.product_id)?.name} × {i.quantity} —{" "}
-                {formatMoney(i.quantity * i.unit_price)}
-              </li>
-            ))}
-            {!items.length && (
-              <li className="text-muted">Aucun article pour ce type.</li>
-            )}
-          </ul>
+              {items.length > 0 && (
+                <div className="payment-totals mt-3">
+                  <div className="d-flex justify-content-between fs-5 fw-bold">
+                    <span>Total</span>
+                    <span>{formatCdf(totalCdf)}</span>
+                  </div>
+                  <div className="d-flex justify-content-between text-muted small mt-1">
+                    <span>Équivalent USD</span>
+                    <span>{formatUsd(totalUsd)}</span>
+                  </div>
+                  <div className="text-muted small mt-1">
+                    Taux : 1 USD = {usdRate.toLocaleString("fr-FR")} CDF
+                  </div>
+                </div>
+              )}
 
-          {items.length > 0 && (
-            <div className="payment-totals mt-3">
-              <div className="d-flex justify-content-between fs-5 fw-bold">
-                <span>Total</span>
-                <span>{formatMoney(total)}</span>
-              </div>
-            </div>
-          )}
+              {items.length > 0 && (
+                <div className="payment-cash-section mt-4">
+                  <h6 className="mb-3">
+                    <i className="bi bi-cash-coin me-2" />
+                    Encaissement
+                  </h6>
+                  <Row className="g-3">
+                    <Col sm={6}>
+                      <Form.Group>
+                        <Form.Label>Devise reçue</Form.Label>
+                        <Form.Select
+                          value={payCurrency}
+                          onChange={(e) => {
+                            setPayCurrency(e.target.value);
+                            setReceived("");
+                          }}
+                        >
+                          <option value="CDF">CDF — Franc congolais</option>
+                          <option value="USD">USD — Dollar américain</option>
+                        </Form.Select>
+                      </Form.Group>
+                    </Col>
+                    <Col sm={6}>
+                      <Form.Group>
+                        <Form.Label>
+                          Montant reçu ({payCurrency})
+                        </Form.Label>
+                        <Form.Control
+                          type="number"
+                          min="0"
+                          step={payCurrency === "USD" ? "0.01" : "1"}
+                          value={received}
+                          onChange={(e) => setReceived(e.target.value)}
+                          placeholder={
+                            payCurrency === "USD"
+                              ? formatUsd(totalUsd)
+                              : String(Math.ceil(totalCdf))
+                          }
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
 
-          <Button
-            type="submit"
-            className="btn-vf btn-modern mt-4"
-            disabled={!items.length}
-          >
-            <i className="bi bi-credit-card-2-front me-2" />
-            Confirmer le paiement
-          </Button>
-        </Form>
-      </div>
+                  {receivedNum > 0 && (
+                    <div
+                      className={`payment-change mt-3${
+                        change.primary < 0 ? " is-negative" : ""
+                      }`}
+                    >
+                      <span className="payment-change-label">Rendu</span>
+                      <span className="payment-change-value">
+                        {formatCdf(change.primary)}
+                      </span>
+                      {payCurrency === "USD" && change.secondary != null && (
+                        <span className="payment-change-sub">
+                          ({formatUsd(change.secondary)} USD — taux{" "}
+                          {usdRate.toLocaleString("fr-FR")} CDF/USD)
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="btn-vf btn-modern mt-4"
+                disabled={!items.length}
+              >
+                <i className="bi bi-credit-card-2-front me-2" />
+                Confirmer le paiement
+              </Button>
+            </Form>
+          </div>
+        </Col>
+        <Col lg={5}>
+          <CashierCalculator
+            onApply={(value) => setReceived(String(value))}
+          />
+        </Col>
+      </Row>
     </>
   );
 }
