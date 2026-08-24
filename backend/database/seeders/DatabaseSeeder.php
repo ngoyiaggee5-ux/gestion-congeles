@@ -1,5 +1,7 @@
 <?php
 
+namespace Database\Seeders;
+
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\Product;
@@ -21,7 +23,7 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Admin Principal',
                 'email' => 'admin@mbala-kwa.ci',
                 'password' => Hash::make('admin123'),
-                'role' => 'administrateur',
+                'role' => 'admin',
                 'active' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -36,10 +38,10 @@ class DatabaseSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'name' => 'Jean Caissier',
-                'email' => 'jean@mbala-kwa.ci',
-                'password' => Hash::make('caissier123'),
-                'role' => 'caissier',
+                'name' => 'Paul Manager',
+                'email' => 'manager@mbala-kwa.ci',
+                'password' => Hash::make('manager123'),
+                'role' => 'manager',
                 'active' => true,
                 'created_at' => now(),
                 'updated_at' => now(),

@@ -3,6 +3,7 @@ import { Button, Form, Table } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import PageHeader from "../../components/PageHeader";
 import { useApp } from "../../data/AppContext";
+import { PERMISSIONS } from "../../utils/permissions";
 
 function cartKey(item) {
   return `${item.product_id}-${item.mode}`;
@@ -22,9 +23,12 @@ export default function Panier() {
     removeFromCart,
     clearCart,
     formatMoney,
+    can,
   } = useApp();
 
   const [editingQty, setEditingQty] = useState({});
+  const canClear = can(PERMISSIONS.cartClear);
+  const canPay = can(PERMISSIONS.salesPayment);
 
   useEffect(() => {
     const validKeys = new Set(data.cart.map(cartKey));
@@ -74,21 +78,25 @@ export default function Panier() {
         subtitle="Articles en attente de paiement."
         actions={
           <>
-            <Button
-              variant="outline-danger"
-              disabled={!data.cart.length}
-              onClick={clearCart}
-            >
-              Vider
-            </Button>
-            <Button
-              as={Link}
-              to="/ventes/paiement"
-              className="btn-vf"
-              disabled={!data.cart.length}
-            >
-              Paiement
-            </Button>
+            {canClear && (
+              <Button
+                variant="outline-danger"
+                disabled={!data.cart.length}
+                onClick={clearCart}
+              >
+                Vider
+              </Button>
+            )}
+            {canPay && (
+              <Button
+                as={Link}
+                to="/ventes/paiement"
+                className="btn-vf"
+                disabled={!data.cart.length}
+              >
+                Paiement
+              </Button>
+            )}
           </>
         }
       />

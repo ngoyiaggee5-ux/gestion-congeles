@@ -3,9 +3,19 @@ import { Alert, Button, Form, Table } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import PageHeader from "../../components/PageHeader";
 import { useApp } from "../../data/AppContext";
+import { PERMISSIONS } from "../../utils/permissions";
 
 export default function GenererFacture() {
-  const { data, createInvoiceFromSale, formatMoney, formatDate, getClientDisplayName } = useApp();
+  const {
+    data,
+    createInvoiceFromSale,
+    formatMoney,
+    formatDate,
+    getClientDisplayName,
+    deleteSale,
+    can,
+  } = useApp();
+  const canDeleteSale = can(PERMISSIONS.salesDelete);
   const [saleId, setSaleId] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -59,6 +69,7 @@ export default function GenererFacture() {
               <th>Total</th>
               <th>Date</th>
               <th>Facture</th>
+              {canDeleteSale && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -84,6 +95,21 @@ export default function GenererFacture() {
                       "—"
                     )}
                   </td>
+                  {canDeleteSale && (
+                    <td className="text-end">
+                      <Button
+                        size="sm"
+                        variant="outline-danger"
+                        onClick={() => {
+                          if (confirm(`Supprimer la vente ${s.number} ?`)) {
+                            deleteSale(s.id);
+                          }
+                        }}
+                      >
+                        Supprimer
+                      </Button>
+                    </td>
+                  )}
                 </tr>
               );
             })}

@@ -1,30 +1,42 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Alert, Form } from "react-bootstrap";
 import Logo from "../components/Logo";
 import VfButton from "../components/VfButton";
 import { useApp } from "../data/AppContext";
+import { getDefaultHomeForRole } from "../utils/permissions";
+import { checkApiHealth } from "../utils/api";
+import { isApiMode } from "../utils/config";
 
 export default function Login() {
-  const { login, isAuthenticated } = useApp();
+  const { login, isAuthenticated, currentUser } = useApp();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [loading, setLoading] = useState(false);
+  const [apiOnline, setApiOnline] = useState(null);
+
+  useEffect(() => {
+    if (!isApiMode) return;
+    checkApiHealth().then(setApiOnline);
+  }, []);
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={getDefaultHomeForRole(currentUser?.role)} replace />;
   }
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const result = login(email.trim(), password);
+    setWarning("");
+    const result = await login(email.trim(), password);
     setLoading(false);
     if (result.ok) {
-      navigate("/", { replace: true });
+      if (result.warning) setWarning(result.warning);
+      navigate(getDefaultHomeForRole(result.user?.role), { replace: true });
     } else {
       setError(result.message);
     }
@@ -39,7 +51,21 @@ export default function Login() {
           <p>Gestion de congelé — Connexion sécurisée</p>
         </div>
 
+        {isApiMode && apiOnline === false && (
+          <Alert variant="warning" className="small mb-3">
+            API hors ligne — connexion en mode local possible. Lancez{" "}
+            <strong>backend/demarrer-api.bat</strong> puis redémarrez le frontend.
+          </Alert>
+        )}
+        {isApiMode && apiOnline === true && (
+          <Alert variant="success" className="small mb-3 py-2">
+            API connectée — si la connexion échoue, double-cliquez{" "}
+            <strong>backend/reset-mots-de-passe.bat</strong>
+          </Alert>
+        )}
+
         {error && <Alert variant="danger">{error}</Alert>}
+        {warning && <Alert variant="warning">{warning}</Alert>}
 
         <Form onSubmit={submit}>
           <Form.Group className="mb-3">
@@ -77,6 +103,7 @@ export default function Login() {
             onClick={() => {
               localStorage.removeItem("mbala-kwa-selemani-data-v1");
               localStorage.removeItem("mbala-kwa-selemani-auth-v1");
+              localStorage.removeItem("mbala-kwa-api-token");
               localStorage.removeItem("vivre-frais-data-v1");
               localStorage.removeItem("mbalakua-selemani-data-v1");
               window.location.reload();
@@ -89,10 +116,13 @@ export default function Login() {
         <div className="login-demo">
           <strong>Comptes de démo</strong>
           <ul className="mb-0 mt-2">
-            <li>Admin : admin@mbala-kwa.ci / admin123</li>
+            <li>ADM : admin@mbala-kwa.ci / admin123</li>
             <li>Vendeur : marie@mbala-kwa.ci / vendeur123</li>
-            <li>Caissier : jean@mbala-kwa.ci / caissier123</li>
+            <li>Manager : manager@mbala-kwa.ci / manager123</li>
           </ul>
+          <p className="small text-muted mb-0 mt-2">
+            Session JWT — expiration automatique après 8 h.
+          </p>
         </div>
       </div>
     </div>

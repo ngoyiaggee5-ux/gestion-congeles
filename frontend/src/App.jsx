@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppProvider } from "./data/AppContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import RoleGuard from "./components/RoleGuard";
 import AppLayout from "./components/AppLayout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -20,6 +21,7 @@ import ImprimerFacture from "./pages/facturation/ImprimerFacture";
 import HistoriqueFactures from "./pages/facturation/HistoriqueFactures";
 import Clients from "./pages/Clients";
 import UsersByRole from "./pages/utilisateurs/UsersByRole";
+import PermissionsOverview from "./pages/utilisateurs/PermissionsOverview";
 import RapportVentes from "./pages/rapports/RapportVentes";
 import RapportStock from "./pages/rapports/RapportStock";
 import RapportBenefices from "./pages/rapports/RapportBenefices";
@@ -33,6 +35,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
+              <Route element={<RoleGuard />}>
               <Route index element={<Dashboard />} />
               <Route path="produits/ajouter" element={<AjouterProduit />} />
               <Route path="produits/modifier" element={<ModifierProduit />} />
@@ -50,23 +53,18 @@ export default function App() {
               <Route path="facturation/imprimer" element={<ImprimerFacture />} />
               <Route path="facturation/historique" element={<HistoriqueFactures />} />
               <Route path="clients" element={<Clients />} />
-              <Route
-                path="utilisateurs/administrateur"
-                element={<UsersByRole role="administrateur" />}
-              />
-              <Route
-                path="utilisateurs/vendeur"
-                element={<UsersByRole role="vendeur" />}
-              />
-              <Route
-                path="utilisateurs/caissier"
-                element={<UsersByRole role="caissier" />}
-              />
+              <Route path="utilisateurs/admin" element={<UsersByRole role="admin" />} />
+              <Route path="utilisateurs/manager" element={<UsersByRole role="manager" />} />
+              <Route path="utilisateurs/vendeur" element={<UsersByRole role="vendeur" />} />
+              <Route path="utilisateurs/administrateur" element={<Navigate to="/utilisateurs/admin" replace />} />
+              <Route path="utilisateurs/caissier" element={<Navigate to="/utilisateurs/manager" replace />} />
+              <Route path="utilisateurs/permissions" element={<PermissionsOverview />} />
               <Route path="rapports/ventes" element={<RapportVentes />} />
               <Route path="rapports/stock" element={<RapportStock />} />
               <Route path="rapports/benefices" element={<RapportBenefices />} />
               <Route path="parametres" element={<Parametres />} />
               <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
             </Route>
           </Route>
         </Routes>

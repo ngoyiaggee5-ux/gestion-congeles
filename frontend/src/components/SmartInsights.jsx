@@ -10,8 +10,10 @@ const SEVERITY_LABELS = {
 };
 
 export default function SmartInsights() {
-  const { getSmartInsights, formatMoney } = useApp();
-  const insights = getSmartInsights();
+  const { getSmartInsights, formatMoney, canAccessRoute } = useApp();
+  const insights = getSmartInsights().filter(
+    (item) => !item.to || canAccessRoute(item.to)
+  );
 
   if (!insights.length) return null;
 

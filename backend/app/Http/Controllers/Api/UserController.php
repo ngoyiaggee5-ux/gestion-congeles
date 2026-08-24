@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Sale;
 use App\Models\Product;
-use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\Request;
 
 class UserController extends Controller
@@ -22,15 +22,21 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
-            'role' => 'required|in:administrateur,vendeur,caissier',
+            'role' => 'required|in:admin,manager,vendeur',
         ]);
 
         $user = User::create([
-            ...$data,
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+            'role' => $data['role'],
             'active' => true,
         ]);
 
-        return response()->json($user, 201);
+        return response()->json(
+            $user->only(['id', 'name', 'email', 'role', 'active', 'created_at']),
+            201
+        );
     }
 
     public function show(User $user)
@@ -44,7 +50,7 @@ class UserController extends Controller
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|unique:users,email,'.$user->id,
             'password' => 'nullable|string|min:6',
-            'role' => 'sometimes|in:administrateur,vendeur,caissier',
+            'role' => 'sometimes|in:admin,manager,vendeur',
             'active' => 'sometimes|boolean',
         ]);
 
@@ -59,8 +65,12 @@ class UserController extends Controller
         return response()->json($user->only(['id', 'name', 'email', 'role', 'active']));
     }
 
-    public function destroy(User $user)
+    public function destroy(Request $request, User $user)
     {
+        if ($request->user()?->id === $user->id) {
+            abort(403, 'Vous ne pouvez pas supprimer votre propre compte.');
+        }
+
         $user->delete();
 
         return response()->json(['message' => 'Utilisateur supprimé']);

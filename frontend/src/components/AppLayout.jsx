@@ -4,14 +4,18 @@ import Sidebar from "./Sidebar";
 import VfButton from "./VfButton";
 import { useApp } from "../data/AppContext";
 
+import { getSessionExpiresAt } from "../utils/authSession";
+import { ROLE_LABELS } from "../utils/permissions";
+
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
   const { currentUser, data, logout } = useApp();
   const navigate = useNavigate();
   const cartCount = data.cart.reduce((n, i) => n + i.quantity, 0);
+  const sessionExpiresAt = getSessionExpiresAt();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/login", { replace: true });
   };
 
@@ -46,7 +50,17 @@ export default function AppLayout() {
               </div>
               <div className="user-meta">
                 <div className="user-name">{currentUser?.name}</div>
-                <span className="role-pill text-capitalize">{currentUser?.role}</span>
+                <span className="role-pill">
+                  {ROLE_LABELS[currentUser?.role] || currentUser?.role}
+                </span>
+                {sessionExpiresAt && (
+                  <small className="text-muted d-block" style={{ fontSize: "0.7rem" }}>
+                    Session expire :{" "}
+                    {new Intl.DateTimeFormat("fr-FR", {
+                      timeStyle: "short",
+                    }).format(new Date(sessionExpiresAt))}
+                  </small>
+                )}
               </div>
             </div>
             <VfButton

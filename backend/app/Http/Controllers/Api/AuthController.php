@@ -31,11 +31,17 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $user->createToken('api')->plainTextToken;
+        $expirationHours = (int) env('SANCTUM_TOKEN_EXPIRATION_HOURS', 8);
+        $expiresAt = now()->addHours($expirationHours);
+
+        $accessToken = $user->createToken('api', ['*'], $expiresAt);
 
         return response()->json([
-            'token' => $token,
-            'user' => $user,
+            'token' => $accessToken->plainTextToken,
+            'token_type' => 'Bearer',
+            'expires_at' => $expiresAt->toIso8601String(),
+            'expires_in' => $expirationHours * 3600,
+            'user' => $user->only(['id', 'name', 'email', 'role', 'active']),
         ]);
     }
 
@@ -48,6 +54,11 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user();
+
+        return response()->json([
+            ...$user->toArray(),
+            'permissions' => \App\Support\Permissions::forRole($user->role),
+        ]);
     }
 }

@@ -159,8 +159,8 @@ export function getSmartInsights(data, stockStatus) {
       icon: "bi-x-octagon-fill",
       title: "Rupture de stock",
       text: `${outOfStock.map((p) => p.name).slice(0, 3).join(", ")}${outOfStock.length > 3 ? " …" : ""}`,
-      to: "/stock/entrees",
-      action: "Réapprovisionner",
+      to: "/stock/disponible",
+      action: "Voir le stock",
     });
   }
 
@@ -171,8 +171,8 @@ export function getSmartInsights(data, stockStatus) {
       icon: "bi-exclamation-triangle-fill",
       title: "Stock faible",
       text: `${lowStock.map((p) => p.name).slice(0, 3).join(", ")}${lowStock.length > 3 ? " …" : ""}`,
-      to: "/stock/entrees",
-      action: "Entrée de stock",
+      to: "/stock/disponible",
+      action: "Consulter le stock",
     });
   }
 

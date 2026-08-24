@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Button, Form, Modal, Row, Col, Table } from "react-bootstrap";
 import PageHeader from "../components/PageHeader";
 import { useApp } from "../data/AppContext";
+import { PERMISSIONS } from "../utils/permissions";
+import { apiErrorMessage } from "../utils/apiSync";
 
 const empty = {
   name: "",
@@ -12,7 +14,8 @@ const empty = {
 };
 
 export default function Clients() {
-  const { data, addClient, updateClient, deleteClient } = useApp();
+  const { data, addClient, updateClient, deleteClient, can } = useApp();
+  const canDelete = can(PERMISSIONS.clientsDelete);
   const [show, setShow] = useState(false);
   const [form, setForm] = useState(empty);
   const [editId, setEditId] = useState(null);
@@ -29,11 +32,18 @@ export default function Clients() {
     setShow(true);
   };
 
-  const save = (e) => {
+  const [error, setError] = useState("");
+
+  const save = async (e) => {
     e.preventDefault();
-    if (editId) updateClient(editId, form);
-    else addClient(form);
-    setShow(false);
+    setError("");
+    try {
+      if (editId) await updateClient(editId, form);
+      else await addClient(form);
+      setShow(false);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    }
   };
 
   return (
@@ -82,6 +92,8 @@ export default function Clients() {
                     onClick={() => {
                       if (confirm("Supprimer ce client ?")) deleteClient(c.id);
                     }}
+                    disabled={!canDelete}
+                    title={canDelete ? "Supprimer" : "Réservé à l'administrateur"}
                   >
                     Suppr.
                   </Button>
@@ -98,6 +110,7 @@ export default function Clients() {
             <Modal.Title>{editId ? "Modifier client" : "Nouveau client"}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
+            {error && <div className="alert alert-danger py-2 small">{error}</div>}
             <Row className="g-3">
               <Col xs={12}>
                 <Form.Group>

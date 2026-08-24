@@ -1,7 +1,18 @@
 import { formatMoney as formatMoneyWithSettings } from "../utils/settings";
+import {
+  hashPassword,
+  hashPasswordSync,
+  isPasswordHashed,
+  PASSWORD_HASHES,
+  verifyPassword,
+} from "../utils/password";
+import { saveAuthSession, clearAuthSession, getValidAuthSession } from "../utils/authSession";
+import { AUTH_STORAGE_KEY } from "../utils/authConstants";
+import { normalizeRole } from "../utils/permissions";
 
 const STORAGE_KEY = "mbala-kwa-selemani-data-v1";
-export const AUTH_STORAGE_KEY = "mbala-kwa-selemani-auth-v1";
+export { AUTH_STORAGE_KEY };
+export { clearAuthSession, getValidAuthSession };
 
 const seed = () => ({
   categories: [
@@ -115,24 +126,24 @@ const seed = () => ({
       id: 1,
       name: "Admin Principal",
       email: "admin@mbala-kwa.ci",
-      password: "admin123",
-      role: "administrateur",
+      password: PASSWORD_HASHES.admin123,
+      role: "admin",
       active: true,
     },
     {
       id: 2,
       name: "Marie Vendeur",
       email: "marie@mbala-kwa.ci",
-      password: "vendeur123",
+      password: PASSWORD_HASHES.vendeur123,
       role: "vendeur",
       active: true,
     },
     {
       id: 3,
-      name: "Jean Caissier",
-      email: "jean@mbala-kwa.ci",
-      password: "caissier123",
-      role: "caissier",
+      name: "Paul Manager",
+      email: "manager@mbala-kwa.ci",
+      password: PASSWORD_HASHES.manager123,
+      role: "manager",
       active: true,
     },
   ],
@@ -201,10 +212,11 @@ const seed = () => ({
   },
 });
 
-const defaultPasswords = {
-  "admin@mbala-kwa.ci": "admin123",
-  "marie@mbala-kwa.ci": "vendeur123",
-  "jean@mbala-kwa.ci": "caissier123",
+const defaultPasswordHashes = {
+  "admin@mbala-kwa.ci": PASSWORD_HASHES.admin123,
+  "marie@mbala-kwa.ci": PASSWORD_HASHES.vendeur123,
+  "manager@mbala-kwa.ci": PASSWORD_HASHES.manager123,
+  "jean@mbala-kwa.ci": PASSWORD_HASHES.manager123,
 };
 
 const legacyEmailMap = {
@@ -263,16 +275,26 @@ function migrateUsers(data) {
       changed = true;
     }
 
-    const expectedPassword = defaultPasswords[email];
+    const role = normalizeRole(user.role);
     let password = user.password;
 
-    if (!password || (expectedPassword && password !== expectedPassword)) {
-      password = expectedPassword || password || "123456";
+    if (typeof password === "string" && password.startsWith("$2y$")) {
+      password = defaultPasswordHashes[email] || PASSWORD_HASHES.admin123;
+      changed = true;
+    } else if (!isPasswordHashed(password)) {
+      password =
+        PASSWORD_HASHES[password] ||
+        defaultPasswordHashes[email] ||
+        hashPasswordSync(password);
       changed = true;
     }
 
-    if (email !== user.email || password !== user.password) {
-      return { ...user, email, password };
+    if (
+      email !== user.email ||
+      password !== user.password ||
+      role !== user.role
+    ) {
+      return { ...user, email, password, role };
     }
 
     return user;
@@ -322,6 +344,10 @@ export function resetData() {
 }
 
 export function getAuthSession() {
+  return readStoredSessionSync();
+}
+
+function readStoredSessionSync() {
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
@@ -330,20 +356,15 @@ export function getAuthSession() {
   }
 }
 
-export function saveAuthSession(userId) {
+export function saveAuthSessionLegacy(userId) {
   const session = { userId, loggedInAt: new Date().toISOString() };
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
   return session;
 }
 
-export function clearAuthSession() {
-  localStorage.removeItem(AUTH_STORAGE_KEY);
-}
-
-export function authenticateUser(email, password) {
+export async function authenticateUser(email, password) {
   const data = migrateUsers(getData());
   const normalizedEmail = normalizeEmail(email);
-  const normalizedPassword = password.trim();
 
   const user = data.users.find(
     (u) => normalizeEmail(u.email) === normalizedEmail
@@ -355,11 +376,24 @@ export function authenticateUser(email, password) {
   if (!user.active) {
     return { ok: false, message: "Ce compte est désactivé." };
   }
-  if (user.password !== normalizedPassword) {
+
+  const valid = await verifyPassword(password, user.password);
+  if (!valid) {
     return { ok: false, message: "Identifiants incorrects." };
   }
-  saveAuthSession(user.id);
-  return { ok: true, user };
+
+  if (!isPasswordHashed(user.password)) {
+    const hashed = await hashPassword(password);
+    updateData((d) => {
+      d.users = d.users.map((u) =>
+        u.id === user.id ? { ...u, password: hashed } : u
+      );
+      return d;
+    });
+  }
+
+  await saveAuthSession({ ...user, role: normalizeRole(user.role) });
+  return { ok: true, user: { ...user, role: normalizeRole(user.role) } };
 }
 
 export function formatMoney(value, settings) {

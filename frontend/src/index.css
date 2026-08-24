@@ -1394,6 +1394,86 @@ h4,
   border-color: #fb923c !important;
 }
 
+/* ─── Permissions & accès ─── */
+.access-denied {
+  max-width: 520px;
+  margin: 2rem auto;
+  padding: 2.5rem 2rem;
+}
+
+.access-denied-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1.25rem;
+  border-radius: 50%;
+  background: var(--vf-green-soft);
+  color: var(--vf-green-dark);
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+}
+
+.access-denied h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.role-permissions-card {
+  padding: 0.25rem 0;
+}
+
+.role-permissions-desc {
+  color: var(--vf-muted);
+  margin-bottom: 1rem;
+  font-size: 0.92rem;
+}
+
+.role-permissions-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.role-permissions-list li {
+  display: flex;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  color: var(--vf-ink);
+}
+
+.role-permissions-list.compact li {
+  font-size: 0.82rem;
+  color: var(--vf-muted);
+}
+
+.permissions-matrix thead th {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.permissions-matrix-cell {
+  font-size: 1.15rem;
+}
+
+.perm-yes {
+  color: #059669;
+}
+
+.perm-no {
+  color: #cbd5e1;
+}
+
+.role-summary-panel .panel-title {
+  font-size: 1rem;
+}
+
+[data-theme="dark"] .perm-no {
+  color: #475569;
+}
+
 .login-page {
   min-height: 100vh;
   display: grid;

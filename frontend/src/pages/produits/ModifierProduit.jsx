@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Table, Button, Modal, Form, Row, Col } from "react-bootstrap";
 import PageHeader from "../../components/PageHeader";
 import { useApp } from "../../data/AppContext";
+import { PERMISSIONS } from "../../utils/permissions";
 
 export default function ModifierProduit() {
   const {
@@ -10,7 +11,9 @@ export default function ModifierProduit() {
     deleteProduct,
     getCategoryName,
     formatMoney,
+    can,
   } = useApp();
+  const canDelete = can(PERMISSIONS.productsDelete);
   const [editing, setEditing] = useState(null);
 
   const save = (e) => {
@@ -64,6 +67,8 @@ export default function ModifierProduit() {
                     onClick={() => {
                       if (confirm("Supprimer ce produit ?")) deleteProduct(p.id);
                     }}
+                    disabled={!canDelete}
+                    title={canDelete ? "Supprimer" : "Réservé à l'administrateur"}
                   >
                     Supprimer
                   </Button>

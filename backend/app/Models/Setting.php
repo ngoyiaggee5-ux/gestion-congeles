@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-
 class Setting extends Model
 {
     protected $fillable = ['key', 'value'];
@@ -24,7 +22,7 @@ class Setting extends Model
 
         $row = static::where('key', 'app')->first();
 
-        return $row ? array_merge($defaults, $row->value) : $defaults;
+        return $row ? array_merge($defaults, $row->value ?? []) : $defaults;
     }
 
     public static function saveAppSettings(array $settings): array

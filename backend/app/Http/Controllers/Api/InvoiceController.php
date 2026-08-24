@@ -52,4 +52,11 @@ class InvoiceController extends Controller
             201
         );
     }
+
+    public function destroy(Invoice $invoice)
+    {
+        $invoice->delete();
+
+        return response()->json(['message' => 'Facture supprimée']);
+    }
 }
