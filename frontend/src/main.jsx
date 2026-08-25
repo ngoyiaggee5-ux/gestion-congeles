@@ -6,8 +6,9 @@ import "./index.css";
 import App from "./App.jsx";
 import { getData } from "./data/store.js";
 import { applyAppearance } from "./utils/settings.js";
+import { mergeAppearance } from "./utils/appearanceStorage.js";
 
-applyAppearance(getData().settings);
+applyAppearance(mergeAppearance(getData().settings));
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

@@ -79,6 +79,13 @@ const sections = [
     permission: PERMISSIONS.settingsManage,
   },
   {
+    key: "a-propos",
+    label: "À propos",
+    icon: "bi-info-circle",
+    to: "/a-propos",
+    permission: PERMISSIONS.dashboard,
+  },
+  {
     key: "rapports",
     label: "Rapports",
     icon: "bi-graph-up-arrow",

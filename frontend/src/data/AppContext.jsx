@@ -30,6 +30,8 @@ import {
 import { isApiMode } from "../utils/config";
 import { api as apiClient, getApiToken, setApiToken, clearApiToken } from "../utils/api";
 import { fetchAppState, reloadAfterMutation } from "../utils/apiSync";
+import { mergeAppearance, saveAppearancePrefs } from "../utils/appearanceStorage";
+import { normalizeSettings } from "../utils/settings";
 import { mapAppState, loadCartFromStorage, saveCartToStorage } from "../utils/mapAppState";
 
 const AppContext = createContext(null);
@@ -47,7 +49,11 @@ async function resolveCurrentUser(data) {
 }
 
 export function AppProvider({ children }) {
-  const [data, setData] = useState(() => getData());
+  const [data, setData] = useState(() => {
+    const initial = getData();
+    initial.settings = mergeAppearance(normalizeSettings(initial.settings));
+    return initial;
+  });
   const [currentUser, setCurrentUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -214,7 +220,7 @@ export function AppProvider({ children }) {
         clearAuthSession();
         setCurrentUser(null);
       },
-      formatMoney: (value) => formatMoneyUtil(value, data.settings),
+      formatMoney: (value) => formatMoneyUtil(value, normalizeSettings(data.settings)),
       formatDate,
       getCategoryName: (id) => getCategoryName(data, id),
       getProduct: (id) => getProduct(data, id),
@@ -226,13 +232,49 @@ export function AppProvider({ children }) {
       },
       refreshData: () => syncFromApi(),
       updateSettings: async (partial) => {
+        const mergeSettings = (current) => {
+          const next = { ...current, ...partial };
+          if (partial.usdRate !== undefined) {
+            next.usdRate = Number(partial.usdRate) || 2800;
+          }
+          if (
+            partial.theme ||
+            partial.font ||
+            partial.currency ||
+            partial.usdRate !== undefined
+          ) {
+            saveAppearancePrefs({
+              ...(partial.theme ? { theme: partial.theme } : {}),
+              ...(partial.font ? { font: partial.font } : {}),
+              ...(partial.currency ? { currency: partial.currency } : {}),
+              ...(partial.usdRate !== undefined
+                ? { usdRate: Number(partial.usdRate) || 2800 }
+                : {}),
+            });
+          }
+          applyAppearance(next);
+          return next;
+        };
+
         if (isApiMode) {
-          await apiClient.put("/settings", partial);
-          await syncFromApi();
+          setData((prev) => ({
+            ...prev,
+            settings: mergeSettings(prev.settings),
+          }));
+          try {
+            const { data: saved } = await apiClient.put("/settings", partial);
+            setData((prev) => ({
+              ...prev,
+              settings: mergeAppearance({ ...prev.settings, ...saved }),
+            }));
+          } catch {
+            /* garder le réglage local */
+          }
           return;
         }
+
         mutate((d) => {
-          d.settings = { ...d.settings, ...partial };
+          d.settings = mergeSettings(d.settings);
           return d;
         });
       },

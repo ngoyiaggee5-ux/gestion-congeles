@@ -3,6 +3,9 @@ function nextId(items) {
   return Math.max(...items.map((item) => Number(item.id) || 0)) + 1;
 }
 
+import { mergeAppearance } from "./appearanceStorage";
+import { normalizeSettings } from "./settings";
+
 export function mapAppState(payload, cart = []) {
   const categories = payload.categories || [];
   const products = payload.products || [];
@@ -24,12 +27,17 @@ export function mapAppState(payload, cart = []) {
     sales,
     invoices,
     cart,
-    settings: payload.settings || {
-      font: "dm-sans",
-      theme: "light",
-      currency: "CDF",
-      usdRate: 2800,
-    },
+    settings: mergeAppearance(
+      normalizeSettings({
+        ...(payload.settings || {
+          font: "dm-sans",
+          theme: "light",
+          currency: "CDF",
+          usdRate: 2800,
+        }),
+        usdRate: Number(payload.settings?.usdRate) || 2800,
+      })
+    ),
     nextIds: {
       products: nextId(products),
       categories: nextId(categories),

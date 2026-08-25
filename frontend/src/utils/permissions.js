@@ -133,6 +133,7 @@ export const ROUTE_PERMISSIONS = [
   { path: "/clients", permission: PERMISSIONS.clientsManage },
   { path: "/utilisateurs", permission: PERMISSIONS.usersManage },
   { path: "/parametres", permission: PERMISSIONS.settingsManage },
+  { path: "/a-propos", permission: PERMISSIONS.dashboard },
   { path: "/rapports/ventes", permission: PERMISSIONS.reportsSales },
   { path: "/rapports/stock", permission: PERMISSIONS.reportsStock },
   { path: "/rapports/benefices", permission: PERMISSIONS.reportsProfit },

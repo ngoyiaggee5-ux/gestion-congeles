@@ -26,6 +26,7 @@ import RapportVentes from "./pages/rapports/RapportVentes";
 import RapportStock from "./pages/rapports/RapportStock";
 import RapportBenefices from "./pages/rapports/RapportBenefices";
 import Parametres from "./pages/Parametres";
+import APropos from "./pages/APropos";
 
 export default function App() {
   return (
@@ -63,6 +64,7 @@ export default function App() {
               <Route path="rapports/stock" element={<RapportStock />} />
               <Route path="rapports/benefices" element={<RapportBenefices />} />
               <Route path="parametres" element={<Parametres />} />
+              <Route path="a-propos" element={<APropos />} />
               <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Route>

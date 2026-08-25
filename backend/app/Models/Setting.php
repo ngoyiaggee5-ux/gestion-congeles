@@ -22,7 +22,16 @@ class Setting extends Model
 
         $row = static::where('key', 'app')->first();
 
-        return $row ? array_merge($defaults, $row->value ?? []) : $defaults;
+        if (! $row) {
+            return $defaults;
+        }
+
+        $value = $row->getAttribute('value');
+        if (is_string($value)) {
+            $value = json_decode($value, true);
+        }
+
+        return array_merge($defaults, is_array($value) ? $value : []);
     }
 
     public static function saveAppSettings(array $settings): array

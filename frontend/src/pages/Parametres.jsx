@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Alert, Button, Col, Form, Nav, Row, Tab } from "react-bootstrap";
 import PageHeader from "../components/PageHeader";
 import { useApp } from "../data/AppContext";
-import { formatMoney as formatMoneyUtil } from "../utils/settings";
+import { formatCdfAsUsd } from "../utils/settings";
 
 export default function Parametres() {
   const { data, updateSettings } = useApp();
@@ -18,20 +18,28 @@ export default function Parametres() {
     setSaved(false);
   };
 
-  const selectTheme = (theme) => {
-    setDraft((prev) => ({ ...prev, theme }));
-    updateSettings({ theme });
+  const selectCurrency = async (currency) => {
+    setDraft((prev) => ({ ...prev, currency }));
+    await updateSettings({ currency });
     setSaved(true);
   };
 
-  const save = () => {
-    updateSettings({
+  const selectTheme = async (theme) => {
+    setDraft((prev) => ({ ...prev, theme }));
+    await updateSettings({ theme });
+    setSaved(true);
+  };
+
+  const save = async () => {
+    await updateSettings({
       font: draft.font,
       currency: draft.currency,
-      usdRate: Number(draft.usdRate),
+      usdRate: Number(draft.usdRate) || 2800,
     });
     setSaved(true);
   };
+
+  const previewRate = Number(draft.usdRate) || 2800;
 
   return (
     <>
@@ -111,7 +119,7 @@ export default function Parametres() {
                   <Col md={6} key={theme.id}>
                     <button
                       type="button"
-                      className={`theme-choice ${data.settings.theme === theme.id ? "active" : ""}`}
+                      className={`theme-choice ${draft.theme === theme.id ? "active" : ""}`}
                       onClick={() => selectTheme(theme.id)}
                     >
                       <i className={`bi ${theme.icon} me-2`} />
@@ -129,7 +137,7 @@ export default function Parametres() {
                     <Form.Label>Devise d’affichage</Form.Label>
                     <Form.Select
                       value={draft.currency}
-                      onChange={(e) => onChange("currency", e.target.value)}
+                      onChange={(e) => selectCurrency(e.target.value)}
                     >
                       <option value="CDF">CDF — Franc congolais</option>
                       <option value="USD">USD — Dollar américain</option>
@@ -142,19 +150,21 @@ export default function Parametres() {
                     <Form.Control
                       type="number"
                       min="1"
+                      step="1"
                       value={draft.usdRate}
                       onChange={(e) => onChange("usdRate", e.target.value)}
-                      disabled={draft.currency !== "USD"}
                     />
                   </Form.Group>
                 </Col>
                 <Col md={4}>
                   <div className="settings-preview">
                     <div className="settings-preview-title">Conversion</div>
-                    <div>28 000 FC → {formatMoneyUtil(28000, draft)}</div>
+                    <div>28 000 FC → {formatCdfAsUsd(28000, { usdRate: previewRate })}</div>
                     <div className="text-muted small mt-1">
-                      Les prix sont stockés en CDF. L’USD est calculé via le
-                      taux.
+                      Taux actuel : 1 USD = {previewRate.toLocaleString("fr-FR")} CDF
+                    </div>
+                    <div className="text-muted small">
+                      Les prix sont stockés en CDF. L’USD est calculé via le taux.
                     </div>
                   </div>
                 </Col>

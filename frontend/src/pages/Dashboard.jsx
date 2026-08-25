@@ -15,13 +15,15 @@ import PageHeader from "../components/PageHeader";
 import SmartInsights from "../components/SmartInsights";
 import { useApp } from "../data/AppContext";
 import { getChartTheme } from "../utils/chartTheme";
+import { formatCdfAsUsd, normalizeSettings } from "../utils/settings";
 
 export default function Dashboard() {
   const { data, formatMoney, stockStatus, getCategoryName } = useApp();
-  const chart = getChartTheme(data.settings?.theme === "dark");
+  const settings = normalizeSettings(data.settings);
+  const chart = getChartTheme(settings.theme === "dark");
   const totalStock = data.products.reduce((s, p) => s + p.stock, 0);
   const lowStock = data.products.filter((p) => stockStatus(p) !== "ok");
-  const salesTotal = data.sales.reduce((s, sale) => s + sale.total, 0);
+  const salesTotalCdf = data.sales.reduce((s, sale) => s + sale.total, 0);
   const clients = data.clients.length;
 
   const salesByDay = Object.values(
@@ -64,8 +66,19 @@ export default function Dashboard() {
             <i className="bi bi-graph-up-arrow" />
           </div>
           <div className="stat-label">Ventes cumulées</div>
-          <div className="stat-value stat-value-sm">{formatMoney(salesTotal)}</div>
-          <div className="stat-hint">{data.sales.length} tickets</div>
+          <div className="stat-value stat-value-sm">{formatMoney(salesTotalCdf)}</div>
+          <div className="stat-hint">
+            {data.sales.length} ticket{data.sales.length !== 1 ? "s" : ""}
+            {salesTotalCdf > 0 && (
+              <>
+                {" "}
+                ·{" "}
+                {settings.currency === "USD"
+                  ? `${salesTotalCdf.toLocaleString("fr-FR")} FC`
+                  : formatCdfAsUsd(salesTotalCdf, settings)}
+              </>
+            )}
+          </div>
         </div>
         <div className="stat-card stat-card-amber">
           <div className="stat-icon">
@@ -104,11 +117,14 @@ export default function Dashboard() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
                   <XAxis dataKey="day" tick={{ fontSize: 12, fill: chart.tick }} />
-                  <YAxis tick={{ fontSize: 12, fill: chart.tick }} />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: chart.tick }}
+                    tickFormatter={(v) => formatMoney(v)}
+                  />
                   <Tooltip
                     formatter={(v) => formatMoney(v)}
                     contentStyle={{
-                      background: data.settings?.theme === "dark" ? "#0f1f1a" : "#fff",
+                      background: settings.theme === "dark" ? "#0f1f1a" : "#fff",
                       border: `1px solid ${chart.grid}`,
                       borderRadius: 12,
                       color: chart.tick,

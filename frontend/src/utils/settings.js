@@ -5,10 +5,18 @@ export const defaultSettings = {
   usdRate: 2800,
 };
 
+export function normalizeSettings(settings = defaultSettings) {
+  const merged = { ...defaultSettings, ...settings };
+  return {
+    ...merged,
+    currency: String(merged.currency || "CDF").toUpperCase(),
+    usdRate: Number(merged.usdRate) || 2800,
+  };
+}
+
 export function formatMoney(value, settings = defaultSettings) {
+  const { currency, usdRate } = normalizeSettings(settings);
   const num = Number(value) || 0;
-  const currency = settings?.currency || "CDF";
-  const usdRate = Number(settings?.usdRate) || 2800;
 
   if (currency === "USD") {
     return formatUsd(num / usdRate);
@@ -41,13 +49,23 @@ export function formatUsd(value) {
 }
 
 export function cdfToUsd(cdf, settings = defaultSettings) {
-  const rate = Number(settings?.usdRate) || 2800;
-  return (Number(cdf) || 0) / rate;
+  const { usdRate } = normalizeSettings(settings);
+  return (Number(cdf) || 0) / usdRate;
 }
 
 export function usdToCdf(usd, settings = defaultSettings) {
-  const rate = Number(settings?.usdRate) || 2800;
-  return (Number(usd) || 0) * rate;
+  const { usdRate } = normalizeSettings(settings);
+  return (Number(usd) || 0) * usdRate;
+}
+
+export function formatCdfAsUsd(cdfAmount, settings = defaultSettings) {
+  return formatUsd(cdfToUsd(cdfAmount, settings));
+}
+
+export function formatMoneyEquivalent(value, settings = defaultSettings) {
+  const { currency } = normalizeSettings(settings);
+  const num = Number(value) || 0;
+  return currency === "USD" ? formatCdf(num) : formatCdfAsUsd(num, settings);
 }
 
 export function applyAppearance(settings = defaultSettings) {
