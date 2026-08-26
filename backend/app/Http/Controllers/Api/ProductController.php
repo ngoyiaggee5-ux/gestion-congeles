@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Support\ActivityLogger;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -61,6 +62,11 @@ class ProductController extends Controller
         ]);
 
         $product->update($data);
+
+        $priceChanges = array_intersect_key($data, array_flip(['price_retail', 'price_wholesale']));
+        if ($priceChanges) {
+            ActivityLogger::logPriceUpdate($request, $product, $priceChanges);
+        }
 
         return response()->json($product->load('category'));
     }

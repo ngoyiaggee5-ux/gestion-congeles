@@ -65,6 +65,7 @@ const sections = [
     icon: "bi-person-gear",
     permission: PERMISSIONS.usersManage,
     items: [
+      { to: "/utilisateurs", label: "Tous les utilisateurs", permission: PERMISSIONS.usersManage },
       { to: "/utilisateurs/permissions", label: "Rôles & permissions", permission: PERMISSIONS.usersManage },
       { to: "/utilisateurs/admin", label: "Administrateur (ADM)", permission: PERMISSIONS.usersManage },
       { to: "/utilisateurs/manager", label: "Manager", permission: PERMISSIONS.usersManage },

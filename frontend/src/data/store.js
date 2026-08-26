@@ -195,6 +195,7 @@ const seed = () => ({
     },
   ],
   cart: [],
+  activityLogs: [],
   settings: {
     font: "dm-sans",
     theme: "light",
@@ -265,6 +266,11 @@ function migrateUsers(data) {
 
   if ("tvaRate" in data.settings) {
     delete data.settings.tvaRate;
+    changed = true;
+  }
+
+  if (!Array.isArray(data.activityLogs)) {
+    data.activityLogs = [];
     changed = true;
   }
 

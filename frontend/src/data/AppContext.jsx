@@ -32,6 +32,11 @@ import { api as apiClient, getApiToken, setApiToken, clearApiToken } from "../ut
 import { fetchAppState, reloadAfterMutation } from "../utils/apiSync";
 import { mergeAppearance, saveAppearancePrefs } from "../utils/appearanceStorage";
 import { normalizeSettings } from "../utils/settings";
+import {
+  createVerificationCode,
+  logLocalActivity,
+} from "../utils/activityLog";
+import { dispatchStockAlert } from "../utils/stockAlert";
 import { mapAppState, loadCartFromStorage, saveCartToStorage } from "../utils/mapAppState";
 
 const AppContext = createContext(null);
@@ -161,6 +166,32 @@ export function AppProvider({ children }) {
       getRolePermissions: (role) => getRolePermissions(role),
       login: async (email, password) => {
         if (isApiMode) {
+          const apiUnreachable =
+            "API inaccessible. Lancez backend/demarrer-api.bat puis réessayez.";
+          const formatApiError = (error, fallback) => {
+            const status = error.response?.status;
+            if (status === 422 || status === 401) {
+              return (
+                error.response?.data?.errors?.email?.[0] ||
+                error.response?.data?.message ||
+                "Identifiants incorrects. Vérifiez le compte dans MySQL (fix-passwords.mysql.sql)."
+              );
+            }
+            if (status >= 500) {
+              return (
+                error.response?.data?.message ||
+                "Erreur serveur (base de données). Vérifiez MySQL dans XAMPP."
+              );
+            }
+            if (error.code === "ECONNABORTED") {
+              return "Délai dépassé. Vérifiez que l'API tourne sur le port 8000.";
+            }
+            if (error.response?.data?.message) {
+              return error.response.data.message;
+            }
+            return fallback;
+          };
+
           try {
             const { data: authData } = await apiClient.post("/login", {
               email: email.trim(),
@@ -172,31 +203,25 @@ export function AppProvider({ children }) {
               ...authData.user,
               role: normalizeRole(authData.user.role),
             };
+            try {
+              setData(await loadFromApi());
+            } catch (loadError) {
+              clearApiToken();
+              setCurrentUser(null);
+              return {
+                ok: false,
+                message: formatApiError(
+                  loadError,
+                  "Connexion OK mais chargement des données impossible. Redémarrez l'API puis réessayez."
+                ),
+              };
+            }
             setCurrentUser(user);
-            setData(await loadFromApi());
             return { ok: true, user };
           } catch (error) {
-            const status = error.response?.status;
-            if (status === 422 || status === 401) {
-              return {
-                ok: false,
-                message:
-                  error.response?.data?.errors?.email?.[0] ||
-                  error.response?.data?.message ||
-                  "Identifiants incorrects. Vérifiez le compte dans MySQL (fix-passwords.mysql.sql).",
-              };
-            }
-            if (status >= 500) {
-              return {
-                ok: false,
-                message:
-                  "Erreur serveur (base de données). Vérifiez MySQL dans XAMPP.",
-              };
-            }
             return {
               ok: false,
-              message:
-                "API inaccessible. Lancez backend/demarrer-api.bat puis réessayez.",
+              message: formatApiError(error, apiUnreachable),
             };
           }
         }
@@ -361,19 +386,35 @@ export function AppProvider({ children }) {
           return;
         }
         mutate((d) => {
-          d.products = d.products.map((p) =>
-            p.id === id
-              ? {
-                  ...p,
-                  ...payload,
-                  category_id: Number(payload.category_id),
-                  price_retail: Number(payload.price_retail),
-                  price_wholesale: Number(payload.price_wholesale),
-                  stock: Number(payload.stock),
-                  min_stock: Number(payload.min_stock),
-                }
-              : p
-          );
+          d.products = d.products.map((p) => {
+            if (p.id !== id) return p;
+            const next = {
+              ...p,
+              ...payload,
+              category_id: Number(payload.category_id),
+              price_retail: Number(payload.price_retail),
+              price_wholesale: Number(payload.price_wholesale),
+              stock: Number(payload.stock),
+              min_stock: Number(payload.min_stock),
+            };
+            if (
+              next.price_retail !== p.price_retail ||
+              next.price_wholesale !== p.price_wholesale
+            ) {
+              logLocalActivity(d, {
+                userName: currentUser?.name,
+                action: "product.price_updated",
+                entityType: "product",
+                entityId: id,
+                summary: `Prix modifié — ${next.name}`,
+                meta: {
+                  price_retail: next.price_retail,
+                  price_wholesale: next.price_wholesale,
+                },
+              });
+            }
+            return next;
+          });
           return d;
         });
       },
@@ -460,7 +501,7 @@ export function AppProvider({ children }) {
           await apiClient.post("/users", {
             name: payload.name,
             email: payload.email,
-            password: payload.password || "123456",
+            password: payload.password,
             role: normalizeRole(payload.role),
           });
           await syncFromApi();
@@ -526,8 +567,20 @@ export function AppProvider({ children }) {
           return d;
         });
       },
-      addToCart: (productId, quantity = 1, mode = "détail") =>
-        (isApiMode ? mutateCart : mutate)((d) => {
+      addToCart: (productId, quantity = 1, mode = "détail") => {
+        const product = data.products.find((p) => p.id === productId);
+        if (product) {
+          const existing = data.cart.find(
+            (i) => i.product_id === productId && i.mode === mode
+          );
+          const nextQty = (existing?.quantity || 0) + quantity;
+          const remaining = product.stock - nextQty;
+          if (remaining <= product.min_stock) {
+            dispatchStockAlert(product, remaining);
+          }
+        }
+
+        return (isApiMode ? mutateCart : mutate)((d) => {
           const product = d.products.find((p) => p.id === productId);
           if (!product) return d;
           const unit_price =
@@ -544,7 +597,8 @@ export function AppProvider({ children }) {
               mode,
             });
           return d;
-        }),
+        });
+      },
       updateCartQty: (productId, mode, quantity) =>
         (isApiMode ? mutateCart : mutate)((d) => {
           d.cart = d.cart
@@ -642,15 +696,24 @@ export function AppProvider({ children }) {
             });
           }
           const invoiceId = d.nextIds.invoices++;
+          const invoiceNumber = `FA-2026-${String(invoiceId).padStart(4, "0")}`;
           d.invoices.unshift({
             id: invoiceId,
-            number: `FA-2026-${String(invoiceId).padStart(4, "0")}`,
+            number: invoiceNumber,
             sale_id: saleId,
             client_id: resolvedClientId,
             client_name: resolvedClientName,
             total,
             status: "émise",
+            verification_code: createVerificationCode(),
             created_at: new Date().toISOString(),
+          });
+          logLocalActivity(d, {
+            userName: currentUser?.name,
+            action: "sale.created",
+            entityType: "sale",
+            entityId: saleId,
+            summary: `Vente ${number} — ${resolvedClientName} (${total} CDF)`,
           });
           d.cart = d.cart.filter((i) => i.mode !== type);
           return d;
@@ -667,14 +730,16 @@ export function AppProvider({ children }) {
           if (!sale) return d;
           if (d.invoices.some((i) => i.sale_id === saleId)) return d;
           const invoiceId = d.nextIds.invoices++;
+          const invoiceNumber = `FA-2026-${String(invoiceId).padStart(4, "0")}`;
           d.invoices.unshift({
             id: invoiceId,
-            number: `FA-2026-${String(invoiceId).padStart(4, "0")}`,
+            number: invoiceNumber,
             sale_id: saleId,
             client_id: sale.client_id,
             client_name: sale.client_name,
             total: sale.total,
             status: "émise",
+            verification_code: createVerificationCode(),
             created_at: new Date().toISOString(),
           });
           return d;
@@ -687,6 +752,16 @@ export function AppProvider({ children }) {
           return;
         }
         mutate((d) => {
+          const invoice = d.invoices.find((i) => i.id === id);
+          if (invoice) {
+            logLocalActivity(d, {
+              userName: currentUser?.name,
+              action: "invoice.deleted",
+              entityType: "invoice",
+              entityId: id,
+              summary: `Facture ${invoice.number} supprimée`,
+            });
+          }
           d.invoices = d.invoices.filter((i) => i.id !== id);
           return d;
         });

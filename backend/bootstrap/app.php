@@ -14,9 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->api(prepend: [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-        ]);
+        // Auth par Bearer token (Sanctum) — pas de session cookie / CSRF SPA.
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureUserRole::class,
         ]);

@@ -18,9 +18,11 @@ import Panier from "./pages/ventes/Panier";
 import Paiement from "./pages/ventes/Paiement";
 import GenererFacture from "./pages/facturation/GenererFacture";
 import ImprimerFacture from "./pages/facturation/ImprimerFacture";
+import VerifierFacture from "./pages/facturation/VerifierFacture";
 import HistoriqueFactures from "./pages/facturation/HistoriqueFactures";
 import Clients from "./pages/Clients";
 import UsersByRole from "./pages/utilisateurs/UsersByRole";
+import UsersAll from "./pages/utilisateurs/UsersAll";
 import PermissionsOverview from "./pages/utilisateurs/PermissionsOverview";
 import RapportVentes from "./pages/rapports/RapportVentes";
 import RapportStock from "./pages/rapports/RapportStock";
@@ -34,6 +36,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/verifier-facture" element={<VerifierFacture />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route element={<RoleGuard />}>
@@ -54,6 +57,8 @@ export default function App() {
               <Route path="facturation/imprimer" element={<ImprimerFacture />} />
               <Route path="facturation/historique" element={<HistoriqueFactures />} />
               <Route path="clients" element={<Clients />} />
+              <Route path="utilisateurs" element={<UsersAll />} />
+              <Route path="utilisateurs/tous" element={<UsersAll />} />
               <Route path="utilisateurs/admin" element={<UsersByRole role="admin" />} />
               <Route path="utilisateurs/manager" element={<UsersByRole role="manager" />} />
               <Route path="utilisateurs/vendeur" element={<UsersByRole role="vendeur" />} />

@@ -6,7 +6,7 @@ import { useApp } from "../../data/AppContext";
 import { Link } from "react-router-dom";
 
 export default function VenteMode({ mode }) {
-  const { data, addToCart, formatMoney, getCategoryName, suggestProducts } =
+  const { data, addToCart, formatMoney, getCategoryName, suggestProducts, stockStatus } =
     useApp();
   const [query, setQuery] = useState("");
   const isGros = mode === "gros";
@@ -64,9 +64,15 @@ export default function VenteMode({ mode }) {
       </div>
 
       <Row className="g-3">
-        {visibleProducts.map((p) => (
+        {visibleProducts.map((p) => {
+          const status = stockStatus(p);
+          return (
           <Col key={p.id} md={6} xl={4}>
-            <Card className="h-100 product-card border-0 shadow-sm">
+            <Card
+              className={`h-100 product-card border-0 shadow-sm${
+                status !== "ok" ? " product-card-stock-alert" : ""
+              }`}
+            >
               <Card.Body>
                 <div className="d-flex justify-content-between align-items-start mb-2">
                   <div>
@@ -78,10 +84,16 @@ export default function VenteMode({ mode }) {
                       {getCategoryName(p.category_id)}
                     </div>
                   </div>
-                  <Badge bg={p.stock > 0 ? "success" : "danger"}>
+                  <Badge bg={status === "out" ? "danger" : status === "low" ? "warning" : "success"}>
                     {p.stock} {p.unit}
                   </Badge>
                 </div>
+                {status !== "ok" && (
+                  <div className="product-stock-warning mb-2">
+                    <i className="bi bi-exclamation-triangle-fill me-1" />
+                    {status === "out" ? "Rupture de stock" : "Stock sous le seuil minimum"}
+                  </div>
+                )}
                 <div className="fs-5 fw-bold mb-3 product-price">
                   {formatMoney(isGros ? p.price_wholesale : p.price_retail)}
                 </div>
@@ -95,7 +107,8 @@ export default function VenteMode({ mode }) {
               </Card.Body>
             </Card>
           </Col>
-        ))}
+        );
+        })}
         {!visibleProducts.length && (
           <Col xs={12}>
             <div className="empty-state">Aucun produit trouvé pour cette recherche.</div>

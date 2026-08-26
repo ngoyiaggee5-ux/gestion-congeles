@@ -1,9 +1,12 @@
 import { useMemo } from "react";
 import { Button, Form, Table } from "react-bootstrap";
 import { useSearchParams } from "react-router-dom";
+import QRCode from "react-qr-code";
 import PageHeader from "../../components/PageHeader";
 import Logo from "../../components/Logo";
 import { useApp } from "../../data/AppContext";
+import { buildInvoiceQrPayload, getInvoiceVerifyUrl } from "../../utils/invoiceQr";
+import { formatCdf } from "../../utils/settings";
 
 export default function ImprimerFacture() {
   const {
@@ -23,6 +26,8 @@ export default function ImprimerFacture() {
   );
   const sale = data.sales.find((s) => s.id === invoice?.sale_id);
   const client = getClient(invoice?.client_id);
+  const verifyUrl = invoice ? getInvoiceVerifyUrl(invoice.number) : "";
+  const qrPayload = invoice ? buildInvoiceQrPayload(invoice) : "";
 
   return (
     <>
@@ -109,6 +114,32 @@ export default function ImprimerFacture() {
               Paiement : {sale.payment_method} · Vente {sale.type}
             </div>
           )}
+
+          <div className="invoice-qr-block">
+            <div className="invoice-qr-box">
+              <QRCode
+                value={qrPayload}
+                size={120}
+                level="M"
+                bgColor="#ffffff"
+                fgColor="#0b6e4f"
+                className="invoice-qr-code"
+              />
+            </div>
+            <div className="invoice-qr-caption">
+              <div className="invoice-qr-title">
+                <i className="bi bi-qr-code-scan me-1" />
+                Vérification
+              </div>
+              <div className="invoice-qr-text">
+                {invoice.number} · {formatCdf(invoice.total)}
+              </div>
+              <div className="invoice-qr-text">
+                Scannez pour vérifier l’authenticité de cette facture.
+              </div>
+              <div className="invoice-qr-url">{verifyUrl}</div>
+            </div>
+          </div>
         </div>
       )}
     </>

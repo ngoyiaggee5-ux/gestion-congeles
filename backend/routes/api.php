@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AppStateController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
@@ -21,11 +22,15 @@ Route::get('/health', fn () => response()->json([
 ]));
 
 Route::prefix('v1')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/public/invoices/verify/{number}', [InvoiceController::class, 'verify']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
+
+        Route::get('/activity-logs', [ActivityLogController::class, 'index'])
+            ->middleware('role:'.P::REPORTS_SALES);
 
         Route::get('/app-state', [AppStateController::class, 'index'])
             ->middleware('role:'.P::DASHBOARD);

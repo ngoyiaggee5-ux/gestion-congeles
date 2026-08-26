@@ -7,6 +7,8 @@ use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\StockMovement;
+use App\Support\ActivityLogger;
+use App\Support\InvoiceVerification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -94,7 +96,10 @@ class SaleController extends Controller
                 'client_name' => $sale->client_name,
                 'total' => $total,
                 'status' => 'émise',
+                'verification_code' => InvoiceVerification::generateCode($invoiceNumber, $total),
             ]);
+
+            ActivityLogger::logSale($request, $sale);
 
             return response()->json(
                 $sale->load(['items.product', 'client', 'invoice']),

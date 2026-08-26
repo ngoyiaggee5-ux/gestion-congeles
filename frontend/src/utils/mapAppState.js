@@ -5,13 +5,17 @@ function nextId(items) {
 
 import { mergeAppearance } from "./appearanceStorage";
 import { normalizeSettings } from "./settings";
+import { normalizeRole } from "./permissions";
 
 export function mapAppState(payload, cart = []) {
   const categories = payload.categories || [];
   const products = payload.products || [];
   const stockMovements = payload.stockMovements || [];
   const clients = payload.clients || [];
-  const users = payload.users || [];
+  const users = (payload.users || []).map((user) => ({
+    ...user,
+    role: normalizeRole(user.role),
+  }));
   const sales = (payload.sales || []).map((sale) => ({
     ...sale,
     items: sale.items || [],
@@ -26,6 +30,7 @@ export function mapAppState(payload, cart = []) {
     users,
     sales,
     invoices,
+    activityLogs: payload.activityLogs || [],
     cart,
     settings: mergeAppearance(
       normalizeSettings({

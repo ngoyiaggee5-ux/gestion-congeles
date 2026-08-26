@@ -3,17 +3,31 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sale;
-use App\Models\Product;
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
+use App\Support\Permissions;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
+    private function formatUser(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => Permissions::normalizeRole($user->role),
+            'active' => (bool) $user->active,
+            'created_at' => $user->created_at,
+        ];
+    }
+
     public function index()
     {
-        return User::orderBy('name')->get(['id', 'name', 'email', 'role', 'active', 'created_at']);
+        return User::orderBy('name')
+            ->get(['id', 'name', 'email', 'role', 'active', 'created_at'])
+            ->map(fn (User $user) => $this->formatUser($user))
+            ->values();
     }
 
     public function store(Request $request)
@@ -21,7 +35,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
+            'password' => ['required', 'string', 'min:8', 'regex:/^(?=.*[A-Za-z])(?=.*\d).+$/'],
             'role' => 'required|in:admin,manager,vendeur',
         ]);
 
@@ -33,15 +47,12 @@ class UserController extends Controller
             'active' => true,
         ]);
 
-        return response()->json(
-            $user->only(['id', 'name', 'email', 'role', 'active', 'created_at']),
-            201
-        );
+        return response()->json($this->formatUser($user), 201);
     }
 
     public function show(User $user)
     {
-        return $user->only(['id', 'name', 'email', 'role', 'active', 'created_at']);
+        return $this->formatUser($user);
     }
 
     public function update(Request $request, User $user)
@@ -49,7 +60,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|unique:users,email,'.$user->id,
-            'password' => 'nullable|string|min:6',
+            'password' => ['nullable', 'string', 'min:8', 'regex:/^(?=.*[A-Za-z])(?=.*\d).+$/'],
             'role' => 'sometimes|in:admin,manager,vendeur',
             'active' => 'sometimes|boolean',
         ]);
@@ -62,7 +73,7 @@ class UserController extends Controller
 
         $user->update($data);
 
-        return response()->json($user->only(['id', 'name', 'email', 'role', 'active']));
+        return response()->json($this->formatUser($user->fresh()));
     }
 
     public function destroy(Request $request, User $user)

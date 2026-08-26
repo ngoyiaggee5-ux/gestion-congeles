@@ -65,7 +65,8 @@ CREATE TABLE categories (
     description     TEXT NULL,
     created_at      TIMESTAMP NULL,
     updated_at      TIMESTAMP NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    UNIQUE KEY categories_name_unique (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Produits
@@ -99,7 +100,8 @@ CREATE TABLE clients (
     address         VARCHAR(255) NULL,
     created_at      TIMESTAMP NULL,
     updated_at      TIMESTAMP NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    UNIQUE KEY clients_email_unique (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Ventes
@@ -151,6 +153,7 @@ CREATE TABLE invoices (
     client_name     VARCHAR(255) NULL,
     total           INT UNSIGNED NOT NULL DEFAULT 0,
     `status`        ENUM('émise', 'payée', 'annulée') NOT NULL DEFAULT 'émise',
+    verification_code VARCHAR(32) NULL,
     created_at      TIMESTAMP NULL,
     updated_at      TIMESTAMP NULL,
     PRIMARY KEY (id),
@@ -177,6 +180,24 @@ CREATE TABLE stock_movements (
     KEY idx_stock_movements_product (product_id),
     CONSTRAINT stock_movements_product_id_foreign
         FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Journal d'activité
+CREATE TABLE activity_logs (
+    id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id         BIGINT UNSIGNED NULL,
+    user_name       VARCHAR(255) NOT NULL,
+    action          VARCHAR(255) NOT NULL,
+    entity_type     VARCHAR(255) NULL,
+    entity_id       BIGINT UNSIGNED NULL,
+    summary         VARCHAR(255) NOT NULL,
+    meta            JSON NULL,
+    created_at      TIMESTAMP NULL,
+    updated_at      TIMESTAMP NULL,
+    PRIMARY KEY (id),
+    KEY idx_activity_logs_user (user_id),
+    CONSTRAINT activity_logs_user_id_foreign
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Paramètres application

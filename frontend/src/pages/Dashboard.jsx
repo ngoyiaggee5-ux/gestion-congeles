@@ -16,15 +16,22 @@ import SmartInsights from "../components/SmartInsights";
 import { useApp } from "../data/AppContext";
 import { getChartTheme } from "../utils/chartTheme";
 import { formatCdfAsUsd, normalizeSettings } from "../utils/settings";
+import { PERMISSIONS } from "../utils/permissions";
 
 export default function Dashboard() {
-  const { data, formatMoney, stockStatus, getCategoryName } = useApp();
+  const { data, formatMoney, stockStatus, getCategoryName, can, formatDate } = useApp();
   const settings = normalizeSettings(data.settings);
   const chart = getChartTheme(settings.theme === "dark");
   const totalStock = data.products.reduce((s, p) => s + p.stock, 0);
   const lowStock = data.products.filter((p) => stockStatus(p) !== "ok");
   const salesTotalCdf = data.sales.reduce((s, sale) => s + sale.total, 0);
   const clients = data.clients.length;
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todaySales = data.sales.filter((sale) =>
+    (sale.created_at || "").startsWith(todayKey)
+  );
+  const todayTotalCdf = todaySales.reduce((s, sale) => s + sale.total, 0);
+  const recentLogs = (data.activityLogs || []).slice(0, 8);
 
   const salesByDay = Object.values(
     data.sales.reduce((acc, sale) => {
@@ -62,6 +69,16 @@ export default function Dashboard() {
           <div className="stat-hint">{data.products.length} références</div>
         </div>
         <div className="stat-card stat-card-ice">
+          <div className="stat-icon">
+            <i className="bi bi-calendar-day" />
+          </div>
+          <div className="stat-label">Ventes du jour</div>
+          <div className="stat-value stat-value-sm">{formatMoney(todayTotalCdf)}</div>
+          <div className="stat-hint">
+            {todaySales.length} ticket{todaySales.length !== 1 ? "s" : ""} aujourd’hui
+          </div>
+        </div>
+        <div className="stat-card">
           <div className="stat-icon">
             <i className="bi bi-graph-up-arrow" />
           </div>
@@ -101,6 +118,70 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      <Row className="g-3 mb-3">
+        <Col lg={can(PERMISSIONS.reportsSales) ? 7 : 12}>
+          <div className="panel">
+            <h3 className="panel-title">Ventes du jour</h3>
+            <Table responsive hover size="sm">
+              <thead>
+                <tr>
+                  <th>N°</th>
+                  <th>Client</th>
+                  <th>Type</th>
+                  <th>Heure</th>
+                  <th className="text-end">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {todaySales.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="empty-state">
+                      Aucune vente enregistrée aujourd’hui.
+                    </td>
+                  </tr>
+                )}
+                {todaySales.map((sale) => (
+                  <tr key={sale.id}>
+                    <td className="fw-semibold">{sale.number}</td>
+                    <td>{sale.client_name || "Client passage"}</td>
+                    <td className="text-capitalize">{sale.type}</td>
+                    <td>
+                      {sale.created_at
+                        ? new Date(sale.created_at).toLocaleTimeString("fr-FR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "—"}
+                    </td>
+                    <td className="text-end fw-semibold">{formatMoney(sale.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
+        </Col>
+        {can(PERMISSIONS.reportsSales) && (
+          <Col lg={5}>
+            <div className="panel">
+              <h3 className="panel-title">Journal d’activité</h3>
+              <ul className="activity-log-list mb-0">
+                {recentLogs.length === 0 && (
+                  <li className="text-muted">Aucune activité récente.</li>
+                )}
+                {recentLogs.map((log) => (
+                  <li key={log.id}>
+                    <div className="activity-log-summary">{log.summary}</div>
+                    <div className="activity-log-meta">
+                      {log.user_name} · {formatDate(log.created_at)}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Col>
+        )}
+      </Row>
 
       <Row className="g-3 mb-3">
         <Col lg={7}>

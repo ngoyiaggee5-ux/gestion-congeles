@@ -18,10 +18,14 @@ class ClientController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:255',
+            'email' => 'nullable|email|max:255|unique:clients,email',
             'type' => 'nullable|in:détail,gros',
             'address' => 'nullable|string|max:255',
         ]);
+
+        if (empty($data['email'])) {
+            $data['email'] = null;
+        }
 
         return response()->json(Client::create($data), 201);
     }
@@ -36,10 +40,14 @@ class ClientController extends Controller
         $data = $request->validate([
             'name' => 'sometimes|string|max:255',
             'phone' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:255',
+            'email' => 'nullable|email|max:255|unique:clients,email,'.$client->id,
             'type' => 'nullable|in:détail,gros',
             'address' => 'nullable|string|max:255',
         ]);
+
+        if (array_key_exists('email') && empty($data['email'])) {
+            $data['email'] = null;
+        }
 
         $client->update($data);
 

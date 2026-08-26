@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\Invoice;
@@ -49,6 +50,15 @@ class AppStateController extends Controller
                 ->values();
         }
 
+        $activityLogs = [];
+        if (Permissions::can($request->user()->role, Permissions::REPORTS_SALES)) {
+            try {
+                $activityLogs = ActivityLog::latest()->limit(50)->get();
+            } catch (\Throwable) {
+                $activityLogs = [];
+            }
+        }
+
         return response()->json([
             'categories' => Category::orderBy('name')->get(),
             'products' => Product::orderBy('name')->get(),
@@ -57,6 +67,7 @@ class AppStateController extends Controller
             'users' => $users,
             'sales' => $sales,
             'invoices' => Invoice::latest()->get(),
+            'activityLogs' => $activityLogs,
             'settings' => Setting::getAppSettings(),
         ]);
     }
