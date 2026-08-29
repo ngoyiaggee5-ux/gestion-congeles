@@ -7,6 +7,7 @@ import Logo from "../../components/Logo";
 import { useApp } from "../../data/AppContext";
 import { buildInvoiceQrPayload, getInvoiceVerifyUrl } from "../../utils/invoiceQr";
 import { formatCdf } from "../../utils/settings";
+import { resolveLineTotal, formatCartQuantity } from "../../utils/saleAmount";
 
 export default function ImprimerFacture() {
   const {
@@ -95,14 +96,17 @@ export default function ImprimerFacture() {
               </tr>
             </thead>
             <tbody>
-              {sale?.items.map((item, idx) => (
+              {sale?.items.map((item, idx) => {
+                const product = getProduct(item.product_id);
+                return (
                 <tr key={idx}>
-                  <td>{getProduct(item.product_id)?.name}</td>
-                  <td>{item.quantity}</td>
+                  <td>{product?.name}</td>
+                  <td>{formatCartQuantity(item.quantity, product?.unit)}</td>
                   <td>{formatMoney(item.unit_price)}</td>
-                  <td>{formatMoney(item.quantity * item.unit_price)}</td>
+                  <td>{formatMoney(resolveLineTotal(item))}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </Table>
 

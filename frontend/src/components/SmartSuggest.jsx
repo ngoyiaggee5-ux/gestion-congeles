@@ -44,9 +44,14 @@ export default function SmartSuggest({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
-    } else if (e.key === "Enter" && open && suggestions[activeIndex]) {
-      e.preventDefault();
-      pick(suggestions[activeIndex]);
+    } else if (e.key === "Enter") {
+      if (open && suggestions[activeIndex]) {
+        e.preventDefault();
+        pick(suggestions[activeIndex]);
+      } else {
+        // Évite la soumission involontaire du formulaire parent
+        e.preventDefault();
+      }
     } else if (e.key === "Escape") {
       setOpen(false);
     }

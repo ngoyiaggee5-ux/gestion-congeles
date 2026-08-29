@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppProvider } from "./data/AppContext";
+import { ToastProvider } from "./components/ToastStack";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleGuard from "./components/RoleGuard";
 import AppLayout from "./components/AppLayout";
@@ -33,6 +34,7 @@ import APropos from "./pages/APropos";
 export default function App() {
   return (
     <AppProvider>
+      <ToastProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -76,6 +78,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </ToastProvider>
     </AppProvider>
   );
 }

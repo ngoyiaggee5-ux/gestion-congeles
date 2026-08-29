@@ -1,18 +1,40 @@
 import { useEffect, useState } from "react";
-import { Button, Form, Table } from "react-bootstrap";
+import { Alert, Form } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import PageHeader from "../../components/PageHeader";
+import VfButton from "../../components/VfButton";
 import { useApp } from "../../data/AppContext";
 import { PERMISSIONS } from "../../utils/permissions";
+import {
+  cartLineTotal,
+  formatCartQuantity,
+  quantityFromAmount,
+  isWeightUnit,
+  getCartLineDisplay,
+  formatQtyInputValue,
+} from "../../utils/saleAmount";
 
 function cartKey(item) {
-  return `${item.product_id}-${item.mode}`;
+  return `${Number(item.product_id)}-${item.mode}`;
 }
 
-function commitQty(raw, maxStock) {
-  const parsed = parseInt(String(raw).trim(), 10);
-  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+function commitQty(raw, maxStock, unit = "kg", mode = "détail") {
+  if (mode === "gros") {
+    const parsed = parseInt(String(raw).trim(), 10);
+    if (!Number.isFinite(parsed) || parsed < 1) return 1;
+    return Math.min(parsed, maxStock);
+  }
+  const parsed = isWeightUnit(unit)
+    ? parseFloat(String(raw).trim().replace(",", "."))
+    : parseInt(String(raw).trim(), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return isWeightUnit(unit) ? 0.001 : 1;
+  }
   return Math.min(parsed, maxStock);
+}
+
+function qtyChanged(prev, next) {
+  return Math.abs(Number(prev) - Number(next)) >= 0.0005;
 }
 
 export default function Panier() {
@@ -20,6 +42,7 @@ export default function Panier() {
     data,
     getProduct,
     updateCartQty,
+    updateCartAmount,
     removeFromCart,
     clearCart,
     formatMoney,
@@ -27,6 +50,8 @@ export default function Panier() {
   } = useApp();
 
   const [editingQty, setEditingQty] = useState({});
+  const [editingAmount, setEditingAmount] = useState({});
+  const [lineErr, setLineErr] = useState("");
   const canClear = can(PERMISSIONS.cartClear);
   const canPay = can(PERMISSIONS.salesPayment);
 
@@ -39,13 +64,123 @@ export default function Panier() {
       }
       return next;
     });
+    setEditingAmount((prev) => {
+      const next = {};
+      for (const [key, value] of Object.entries(prev)) {
+        if (validKeys.has(key)) next[key] = value;
+      }
+      return next;
+    });
   }, [data.cart]);
+
+  const resolveLine = (item, product, key) => {
+    const base = getCartLineDisplay(item, product);
+
+    if (item.mode === "détail" && key in editingAmount) {
+      const parsed = Math.round(Number(editingAmount[key]) || 0);
+      if (parsed > 0) {
+        const quantity = quantityFromAmount(
+          parsed,
+          item.unit_price,
+          product?.unit
+        );
+        return {
+          ...base,
+          quantity,
+          amount: parsed,
+          lineTotal: parsed,
+          quantityInput: formatQtyInputValue(quantity, product?.unit, item.mode),
+          amountInput: String(parsed),
+          quantityLabel: formatCartQuantity(quantity, product?.unit),
+        };
+      }
+    }
+
+    if (key in editingQty) {
+      const parsed = isWeightUnit(product?.unit)
+        ? parseFloat(String(editingQty[key]).replace(",", "."))
+        : parseInt(editingQty[key], 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        const quantity = Math.min(parsed, product?.stock || parsed);
+        const amount = Math.round(quantity * item.unit_price);
+        return {
+          ...base,
+          quantity,
+          amount,
+          lineTotal: amount,
+          soldByAmount: false,
+          quantityInput: editingQty[key],
+          amountInput: String(amount),
+          quantityLabel: formatCartQuantity(quantity, product?.unit),
+        };
+      }
+    }
+
+    if (key in editingQty) {
+      return { ...base, quantityInput: editingQty[key] };
+    }
+    if (key in editingAmount) {
+      return { ...base, amountInput: editingAmount[key] };
+    }
+
+    return base;
+  };
 
   const commitItemQty = (item, product) => {
     const key = cartKey(item);
-    const raw = key in editingQty ? editingQty[key] : String(item.quantity);
-    const qty = commitQty(raw, product?.stock || 1);
+    const base = getCartLineDisplay(item, product);
+    const raw = key in editingQty ? editingQty[key] : base.quantityInput;
+    const qty = commitQty(raw, product?.stock || 1, product?.unit, item.mode);
+    if (qty <= 0) return;
+
+    if (base.soldByAmount && !qtyChanged(base.quantity, qty)) {
+      setEditingQty((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      return;
+    }
+
     updateCartQty(item.product_id, item.mode, qty);
+    setEditingQty((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setEditingAmount((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const commitItemAmount = (item, product) => {
+    const key = cartKey(item);
+    const base = getCartLineDisplay(item, product);
+    const raw = key in editingAmount ? editingAmount[key] : base.amountInput;
+    setLineErr("");
+
+    const parsed = Math.round(Number(raw) || 0);
+    if (base.soldByAmount && parsed === base.amount) {
+      setEditingAmount((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      return;
+    }
+
+    const result = updateCartAmount(item.product_id, item.mode, raw);
+    if (!result.ok) {
+      setLineErr(result.error);
+      return;
+    }
+    setEditingAmount((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
     setEditingQty((prev) => {
       const next = { ...prev };
       delete next[key];
@@ -53,97 +188,87 @@ export default function Panier() {
     });
   };
 
-  const displayQty = (item) => {
-    const key = cartKey(item);
-    return key in editingQty ? editingQty[key] : String(item.quantity);
-  };
-
-  const total = data.cart.reduce((s, i) => {
-    const key = cartKey(i);
-    if (key in editingQty) {
-      const parsed = parseInt(editingQty[key], 10);
-      const qty =
-        editingQty[key] !== "" && Number.isFinite(parsed) && parsed > 0
-          ? parsed
-          : i.quantity;
-      return s + qty * i.unit_price;
-    }
-    return s + i.quantity * i.unit_price;
+  const total = data.cart.reduce((sum, item) => {
+    const product = getProduct(item.product_id);
+    const line = resolveLine(item, product, cartKey(item));
+    return sum + line.lineTotal;
   }, 0);
 
   return (
-    <>
+    <div className={`panier-shell${data.cart.length ? " has-checkout-bar" : ""}`}>
       <PageHeader
         title="Panier"
-        subtitle="Articles en attente de paiement."
+        subtitle="Révisez les lignes avant paiement — montants modifiables en détail."
+        badge={`${data.cart.length} article${data.cart.length !== 1 ? "s" : ""}`}
         actions={
-          <>
-            {canClear && (
-              <Button
-                variant="outline-danger"
-                disabled={!data.cart.length}
-                onClick={clearCart}
-              >
-                Vider
-              </Button>
-            )}
-            {canPay && (
-              <Button
-                as={Link}
-                to="/ventes/paiement"
-                className="btn-vf"
-                disabled={!data.cart.length}
-              >
-                Paiement
-              </Button>
-            )}
-          </>
+          canClear && (
+            <VfButton
+              variant="danger"
+              disabled={!data.cart.length}
+              onClick={clearCart}
+              icon="bi-trash3"
+            >
+              Vider
+            </VfButton>
+          )
         }
       />
-      <div className="panel">
+
+      <div className="panel panier-panel">
+        {lineErr && (
+          <Alert variant="danger" dismissible onClose={() => setLineErr("")}>
+            {lineErr}
+          </Alert>
+        )}
+
         {!data.cart.length ? (
-          <div className="empty-state">
-            Panier vide. Ajoutez des produits depuis Vente au détail ou en gros.
+          <div className="empty-state-modern">
+            <i className="bi bi-basket" />
+            <h3>Panier vide</h3>
+            <p>Ajoutez des produits depuis la caisse détail ou le mode gros.</p>
+            <VfButton as={Link} to="/ventes/detail" icon="bi-cart-plus">
+              Ouvrir la caisse
+            </VfButton>
           </div>
         ) : (
-          <Table responsive hover>
-            <thead>
-              <tr>
-                <th>Produit</th>
-                <th>Mode</th>
-                <th>Prix</th>
-                <th>Qté</th>
-                <th>Sous-total</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.cart.map((item) => {
-                const product = getProduct(item.product_id);
-                const key = cartKey(item);
-                const shownQty = displayQty(item);
-                const parsedShown = parseInt(shownQty, 10);
-                const lineQty =
-                  shownQty !== "" && Number.isFinite(parsedShown) && parsedShown > 0
-                    ? Math.min(parsedShown, product?.stock || parsedShown)
-                    : item.quantity;
+          <div className="cart-lines">
+            {data.cart.map((item) => {
+              const product = getProduct(item.product_id);
+              const key = cartKey(item);
+              const isDetail = item.mode === "détail";
+              const line = resolveLine(item, product, key);
 
-                return (
-                  <tr key={key}>
-                    <td className="fw-semibold">{product?.name}</td>
-                    <td className="text-capitalize">{item.mode}</td>
-                    <td>{formatMoney(item.unit_price)}</td>
-                    <td style={{ maxWidth: 100 }}>
+              return (
+                <article key={key} className="cart-line-card">
+                  <div className="cart-line-head">
+                    <div>
+                      <h3>{product?.name}</h3>
+                      <p>
+                        {line.quantityLabel}
+                        {line.soldByAmount && (
+                          <span className="cart-line-tag">· vendu au montant</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="cart-line-total">{formatMoney(line.lineTotal)}</div>
+                  </div>
+
+                  <div className="cart-line-meta">
+                    <span className="text-capitalize">{item.mode}</span>
+                    <span>{formatMoney(item.unit_price)} / unité</span>
+                  </div>
+
+                  <div className="cart-line-controls">
+                    <Form.Group>
+                      <Form.Label>Quantité</Form.Label>
                       <Form.Control
                         type="number"
-                        min="1"
+                        min={isDetail && isWeightUnit(product?.unit) ? "0.001" : "1"}
+                        step={isDetail && isWeightUnit(product?.unit) ? "0.001" : "1"}
                         max={product?.stock || 1}
-                        value={shownQty}
+                        value={line.quantityInput}
                         onChange={(e) =>
-                          setEditingQty((prev) => ({
-                            ...prev,
-                            [key]: e.target.value,
-                          }))
+                          setEditingQty((prev) => ({ ...prev, [key]: e.target.value }))
                         }
                         onBlur={() => commitItemQty(item, product)}
                         onKeyDown={(e) => {
@@ -152,33 +277,64 @@ export default function Panier() {
                             e.currentTarget.blur();
                           }
                         }}
-                        aria-label={`Quantité ${product?.name}`}
                       />
-                    </td>
-                    <td>{formatMoney(lineQty * item.unit_price)}</td>
-                    <td className="text-end">
-                      <Button
-                        size="sm"
-                        variant="outline-danger"
-                        onClick={() =>
-                          removeFromCart(item.product_id, item.mode)
-                        }
-                      >
-                        Retirer
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        )}
-        <div className="d-flex justify-content-end mt-3">
-          <div className="fs-4 fw-bold" style={{ fontFamily: "var(--font-display)" }}>
-            Total : {formatMoney(total)}
+                    </Form.Group>
+
+                    {isDetail && (
+                      <Form.Group>
+                        <Form.Label>Montant (CDF)</Form.Label>
+                        <Form.Control
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={line.amountInput}
+                          onChange={(e) =>
+                            setEditingAmount((prev) => ({
+                              ...prev,
+                              [key]: e.target.value,
+                            }))
+                          }
+                          onBlur={() => commitItemAmount(item, product)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
+                        />
+                      </Form.Group>
+                    )}
+
+                    <VfButton
+                      variant="danger"
+                      size="sm"
+                      className="cart-line-remove"
+                      onClick={() => removeFromCart(item.product_id, item.mode)}
+                      icon="bi-x-lg"
+                    >
+                      Retirer
+                    </VfButton>
+                  </div>
+                </article>
+              );
+            })}
           </div>
-        </div>
+        )}
       </div>
-    </>
+
+      {data.cart.length > 0 && (
+        <div className="checkout-bar no-print">
+          <div>
+            <div className="checkout-bar-label">Total à encaisser</div>
+            <div className="checkout-bar-total">{formatMoney(total)}</div>
+          </div>
+          {canPay && (
+            <VfButton as={Link} to="/ventes/paiement" icon="bi-credit-card-2-front">
+              Aller au paiement
+            </VfButton>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

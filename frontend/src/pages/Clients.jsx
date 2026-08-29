@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button, Form, Modal, Row, Col, Table } from "react-bootstrap";
 import PageHeader from "../components/PageHeader";
+import { useConfirmDialog } from "../components/ConfirmDialog";
 import { useApp } from "../data/AppContext";
 import { PERMISSIONS } from "../utils/permissions";
 import { apiErrorMessage } from "../utils/apiSync";
@@ -15,6 +16,7 @@ const empty = {
 
 export default function Clients() {
   const { data, addClient, updateClient, deleteClient, can } = useApp();
+  const { askConfirm, ConfirmDialog } = useConfirmDialog();
   const canDelete = can(PERMISSIONS.clientsDelete);
   const [show, setShow] = useState(false);
   const [form, setForm] = useState(empty);
@@ -89,9 +91,14 @@ export default function Clients() {
                   <Button
                     size="sm"
                     variant="outline-danger"
-                    onClick={() => {
-                      if (confirm("Supprimer ce client ?")) deleteClient(c.id);
-                    }}
+                    onClick={() =>
+                      askConfirm({
+                        title: "Supprimer le client",
+                        message: `Voulez-vous supprimer ${c.name} ?`,
+                        confirmLabel: "Oui, supprimer",
+                        onConfirm: () => deleteClient(c.id),
+                      })
+                    }
                     disabled={!canDelete}
                     title={canDelete ? "Supprimer" : "Réservé à l'administrateur"}
                   >
@@ -176,6 +183,7 @@ export default function Clients() {
           </Modal.Footer>
         </Form>
       </Modal>
+      <ConfirmDialog />
     </>
   );
 }

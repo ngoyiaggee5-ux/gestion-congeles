@@ -28,8 +28,13 @@ import {
   getRolePermissions,
 } from "../utils/permissions";
 import { isApiMode } from "../utils/config";
+import {
+  quantityFromAmount,
+  cartLineTotal,
+  amountFromQuantity,
+} from "../utils/saleAmount";
 import { api as apiClient, getApiToken, setApiToken, clearApiToken } from "../utils/api";
-import { fetchAppState, reloadAfterMutation } from "../utils/apiSync";
+import { fetchAppState, fetchInvoices, reloadAfterMutation } from "../utils/apiSync";
 import { mergeAppearance, saveAppearancePrefs } from "../utils/appearanceStorage";
 import { normalizeSettings } from "../utils/settings";
 import {
@@ -40,6 +45,10 @@ import { dispatchStockAlert } from "../utils/stockAlert";
 import { mapAppState, loadCartFromStorage, saveCartToStorage } from "../utils/mapAppState";
 
 const AppContext = createContext(null);
+
+function sameCartLine(item, productId, mode) {
+  return Number(item.product_id) === Number(productId) && item.mode === mode;
+}
 
 async function loadFromApi(cart) {
   return fetchAppState(cart);
@@ -90,6 +99,7 @@ export function AppProvider({ children }) {
             active: me.active,
           });
           setData(appData);
+          applyAppearance(appData.settings);
         } else {
           const user = await resolveCurrentUser(getData());
           if (!active) return;
@@ -118,16 +128,17 @@ export function AppProvider({ children }) {
     setData({ ...next });
   }, []);
 
-  const mutateCart = useCallback(
-    (updater) => {
+  const mutateCart = useCallback((updater) => {
+    let nextState;
+    setData((prev) => {
       const next =
-        typeof updater === "function" ? updater(structuredClone(data)) : updater;
+        typeof updater === "function" ? updater(structuredClone(prev)) : updater;
       if (next.cart) saveCartToStorage(next.cart);
-      refresh(next);
+      nextState = next;
       return next;
-    },
-    [refresh, data]
-  );
+    });
+    return nextState;
+  }, []);
 
   const syncFromApi = useCallback(async (cart) => {
     if (isApiMode && !getApiToken()) {
@@ -138,20 +149,35 @@ export function AppProvider({ children }) {
     return next;
   }, []);
 
+  const refreshData = useCallback(async (cart) => syncFromApi(cart), [syncFromApi]);
+
+  const syncInvoicesFromApi = useCallback(async () => {
+    if (!isApiMode) return [];
+    const invoices = await fetchInvoices();
+    setData((prev) => ({ ...prev, invoices }));
+    return invoices;
+  }, []);
+
   const mutate = useCallback(
     (updater) => {
-      let next;
       if (isApiMode) {
-        next =
-          typeof updater === "function" ? updater(structuredClone(data)) : updater;
-        if (next.cart) saveCartToStorage(next.cart);
-      } else {
-        next = updateData(updater);
+        let nextState;
+        setData((prev) => {
+          const next =
+            typeof updater === "function"
+              ? updater(structuredClone(prev))
+              : updater;
+          if (next.cart) saveCartToStorage(next.cart);
+          nextState = next;
+          return next;
+        });
+        return nextState;
       }
+      const next = updateData(updater);
       refresh(next);
       return next;
     },
-    [refresh, data]
+    [refresh]
   );
 
   const app = useMemo(
@@ -170,21 +196,27 @@ export function AppProvider({ children }) {
             "API inaccessible. Lancez backend/demarrer-api.bat puis réessayez.";
           const formatApiError = (error, fallback) => {
             const status = error.response?.status;
+            if (status === 429) {
+              return (
+                error.response?.data?.message ||
+                "Trop de tentatives. Patientez une minute avant de réessayer."
+              );
+            }
             if (status === 422 || status === 401) {
               return (
                 error.response?.data?.errors?.email?.[0] ||
                 error.response?.data?.message ||
-                "Identifiants incorrects. Vérifiez le compte dans MySQL (fix-passwords.mysql.sql)."
+                "Identifiants incorrects."
               );
             }
             if (status >= 500) {
               return (
                 error.response?.data?.message ||
-                "Erreur serveur (base de données). Vérifiez MySQL dans XAMPP."
+                "Erreur serveur. Réessayez dans un instant."
               );
             }
             if (error.code === "ECONNABORTED") {
-              return "Délai dépassé. Vérifiez que l'API tourne sur le port 8000.";
+              return "Délai dépassé. Vérifiez votre connexion à l’API.";
             }
             if (error.response?.data?.message) {
               return error.response.data.message;
@@ -255,7 +287,8 @@ export function AppProvider({ children }) {
         const client = getClient(data, record?.client_id);
         return client?.name || "Client passage";
       },
-      refreshData: () => syncFromApi(),
+      refreshData,
+      syncInvoicesFromApi,
       updateSettings: async (partial) => {
         const mergeSettings = (current) => {
           const next = { ...current, ...partial };
@@ -568,11 +601,10 @@ export function AppProvider({ children }) {
         });
       },
       addToCart: (productId, quantity = 1, mode = "détail") => {
-        const product = data.products.find((p) => p.id === productId);
+        const pid = Number(productId);
+        const product = data.products.find((p) => Number(p.id) === pid);
         if (product) {
-          const existing = data.cart.find(
-            (i) => i.product_id === productId && i.mode === mode
-          );
+          const existing = data.cart.find((i) => sameCartLine(i, pid, mode));
           const nextQty = (existing?.quantity || 0) + quantity;
           const remaining = product.stock - nextQty;
           if (remaining <= product.min_stock) {
@@ -581,17 +613,17 @@ export function AppProvider({ children }) {
         }
 
         return (isApiMode ? mutateCart : mutate)((d) => {
-          const product = d.products.find((p) => p.id === productId);
+          const product = d.products.find((p) => Number(p.id) === pid);
           if (!product) return d;
           const unit_price =
             mode === "gros" ? product.price_wholesale : product.price_retail;
-          const existing = d.cart.find(
-            (i) => i.product_id === productId && i.mode === mode
-          );
-          if (existing) existing.quantity += quantity;
-          else
+          const existing = d.cart.find((i) => sameCartLine(i, pid, mode));
+          if (existing) {
+            existing.quantity += quantity;
+            delete existing.sale_amount;
+          } else
             d.cart.push({
-              product_id: productId,
+              product_id: pid,
               quantity,
               unit_price,
               mode,
@@ -599,21 +631,146 @@ export function AppProvider({ children }) {
           return d;
         });
       },
+      addToCartByAmount: (productId, amount, mode = "détail") => {
+        if (mode === "gros") {
+          return {
+            ok: false,
+            error: "La vente par montant est réservée au détail.",
+          };
+        }
+
+        const pid = Number(productId);
+        const product = data.products.find((p) => Number(p.id) === pid);
+        if (!product) return { ok: false, error: "Produit introuvable." };
+
+        const unit_price = product.price_retail;
+        const saleAmount = Math.round(Number(amount) || 0);
+        const quantity = quantityFromAmount(saleAmount, unit_price, product.unit);
+
+        if (saleAmount <= 0) {
+          return { ok: false, error: "Indiquez un montant valide." };
+        }
+        if (quantity <= 0) {
+          return {
+            ok: false,
+            error: `Montant insuffisant (prix : ${formatMoneyUtil(unit_price, data.settings)}).`,
+          };
+        }
+        if (quantity > product.stock) {
+          return {
+            ok: false,
+            error: `Stock insuffisant (${product.stock} ${product.unit} disponible).`,
+          };
+        }
+
+        const existing = data.cart.find((i) => sameCartLine(i, pid, mode));
+        const nextQty = (existing?.sale_amount
+          ? quantityFromAmount(
+              Math.round(Number(existing.sale_amount)) + saleAmount,
+              unit_price,
+              product.unit
+            )
+          : (existing?.quantity || 0) + quantity);
+        const remaining = product.stock - nextQty;
+        if (remaining <= product.min_stock) {
+          dispatchStockAlert(product, remaining);
+        }
+
+        let applied = false;
+        (isApiMode ? mutateCart : mutate)((d) => {
+          const p = d.products.find((x) => Number(x.id) === pid);
+          if (!p) return d;
+          const price = p.price_retail;
+          const line = d.cart.find((i) => sameCartLine(i, pid, mode));
+          if (line) {
+            const previousAmount =
+              line.sale_amount != null
+                ? Math.round(Number(line.sale_amount))
+                : amountFromQuantity(line.quantity, price);
+            line.sale_amount = previousAmount + saleAmount;
+            line.quantity = quantityFromAmount(line.sale_amount, price, p.unit);
+          } else {
+            d.cart.push({
+              product_id: pid,
+              quantity,
+              unit_price: price,
+              mode,
+              sale_amount: saleAmount,
+            });
+          }
+          applied = true;
+          return d;
+        });
+
+        if (!applied) {
+          return { ok: false, error: "Impossible d'ajouter au panier." };
+        }
+
+        return { ok: true, quantity, saleAmount };
+      },
       updateCartQty: (productId, mode, quantity) =>
         (isApiMode ? mutateCart : mutate)((d) => {
+          const pid = Number(productId);
           d.cart = d.cart
             .map((i) =>
-              i.product_id === productId && i.mode === mode
-                ? { ...i, quantity: Number(quantity) }
+              sameCartLine(i, pid, mode)
+                ? { ...i, quantity: Number(quantity), sale_amount: undefined }
                 : i
             )
             .filter((i) => i.quantity > 0);
           return d;
         }),
+      updateCartAmount: (productId, mode, amount) => {
+        if (mode === "gros") {
+          return {
+            ok: false,
+            error: "La vente par montant est réservée au détail.",
+          };
+        }
+
+        const pid = Number(productId);
+        const product = data.products.find((p) => Number(p.id) === pid);
+        if (!product) return { ok: false, error: "Produit introuvable." };
+
+        const cartItem = data.cart.find((i) => sameCartLine(i, pid, mode));
+        if (!cartItem) return { ok: false, error: "Ligne introuvable." };
+
+        const saleAmount = Math.round(Number(amount) || 0);
+        const quantity = quantityFromAmount(
+          saleAmount,
+          cartItem.unit_price,
+          product.unit
+        );
+
+        if (saleAmount <= 0) {
+          return { ok: false, error: "Montant invalide." };
+        }
+        if (quantity <= 0) {
+          return { ok: false, error: "Montant insuffisant pour ce produit." };
+        }
+        if (quantity > product.stock) {
+          return {
+            ok: false,
+            error: `Stock insuffisant (${product.stock} ${product.unit}).`,
+          };
+        }
+
+        (isApiMode ? mutateCart : mutate)((d) => {
+          d.cart = d.cart.map((i) =>
+            sameCartLine(i, pid, mode)
+              ? { ...i, quantity, sale_amount: saleAmount }
+              : i
+          );
+          return d;
+        });
+
+        return { ok: true };
+      },
       removeFromCart: (productId, mode) =>
         (isApiMode ? mutateCart : mutate)((d) => {
+          const pid = Number(productId);
           d.cart = d.cart.filter(
-            (i) => !(i.product_id === productId && i.mode === mode)
+            (i) => !sameCartLine(i, pid, mode)
           );
           return d;
         }),
@@ -640,6 +797,9 @@ export function AppProvider({ children }) {
               product_id: i.product_id,
               quantity: i.quantity,
               unit_price: i.unit_price,
+              ...(i.sale_amount != null
+                ? { line_total: Math.round(i.sale_amount) }
+                : {}),
             })),
           });
           const cartAfter = data.cart.filter((i) => i.mode !== type);
@@ -653,10 +813,7 @@ export function AppProvider({ children }) {
             const product = d.products.find((p) => p.id === item.product_id);
             if (!product || product.stock < item.quantity) return d;
           }
-          const total = items.reduce(
-            (sum, i) => sum + i.quantity * i.unit_price,
-            0
-          );
+          const total = items.reduce((sum, i) => sum + cartLineTotal(i), 0);
           const resolvedClientId = Number(client_id) || null;
           const resolvedClientName =
             client_name?.trim() ||
@@ -674,6 +831,7 @@ export function AppProvider({ children }) {
               product_id: i.product_id,
               quantity: i.quantity,
               unit_price: i.unit_price,
+              line_total: cartLineTotal(i),
             })),
             payment_method,
             status: "payée",
@@ -747,8 +905,19 @@ export function AppProvider({ children }) {
       },
       deleteInvoice: async (id) => {
         if (isApiMode) {
-          await apiClient.delete(`/invoices/${id}`);
-          await syncFromApi();
+          setData((prev) => ({
+            ...prev,
+            invoices: prev.invoices.filter((i) => i.id !== id),
+          }));
+          try {
+            await apiClient.delete(`/invoices/${id}`);
+          } catch (error) {
+            if (error.response?.status !== 404) {
+              await syncInvoicesFromApi();
+              throw error;
+            }
+          }
+          await syncInvoicesFromApi();
           return;
         }
         mutate((d) => {
@@ -766,6 +935,29 @@ export function AppProvider({ children }) {
           return d;
         });
       },
+      deleteAllInvoices: async () => {
+        if (isApiMode) {
+          const { data: result } = await apiClient.post("/invoices/purge");
+          setData((prev) => ({ ...prev, invoices: [] }));
+          await syncInvoicesFromApi();
+          return result;
+        }
+        mutate((d) => {
+          const count = d.invoices.length;
+          if (count > 0) {
+            logLocalActivity(d, {
+              userName: currentUser?.name,
+              action: "invoice.purged",
+              entityType: "invoice",
+              entityId: null,
+              summary: `Historique factures vidé — ${count} facture(s)`,
+            });
+          }
+          d.invoices = [];
+          return d;
+        });
+        return { message: "Historique vidé.", deleted: 0 };
+      },
       deleteSale: async (id) => {
         if (isApiMode) {
           await apiClient.delete(`/sales/${id}`);
@@ -779,7 +971,7 @@ export function AppProvider({ children }) {
         });
       },
     }),
-    [data, currentUser, mutate, mutateCart, syncFromApi, authReady]
+    [data, currentUser, mutate, mutateCart, syncFromApi, syncInvoicesFromApi, refreshData, authReady]
   );
 
   if (!authReady) {

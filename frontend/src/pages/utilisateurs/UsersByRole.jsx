@@ -6,6 +6,7 @@ import PageHeader from "../../components/PageHeader";
 
 import RolePermissionsCard from "../../components/RolePermissionsCard";
 
+import { useConfirmDialog } from "../../components/ConfirmDialog";
 import { apiErrorMessage } from "../../utils/apiSync";
 import { useApp } from "../../data/AppContext";
 import PasswordField from "../../components/PasswordField";
@@ -32,6 +33,8 @@ export default function UsersByRole({ role }) {
   const { data, addUser, updateUser, toggleUser, deleteUser, can, currentUser, refreshData, isApiMode } =
 
     useApp();
+
+  const { askConfirm, ConfirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     if (!isApiMode) return;
@@ -109,19 +112,16 @@ export default function UsersByRole({ role }) {
 
 
 
-  const handleDelete = async (user) => {
+  const handleDelete = (user) => {
 
-    if (user.id === currentUser?.id) {
+    if (user.id === currentUser?.id) return;
 
-      alert("Vous ne pouvez pas supprimer votre propre compte.");
-
-      return;
-
-    }
-
-    if (confirm(`Supprimer l'utilisateur ${user.name} ?`)) {
-      await deleteUser(user.id);
-    }
+    askConfirm({
+      title: "Supprimer l'utilisateur",
+      message: `Voulez-vous supprimer ${user.name} ?`,
+      confirmLabel: "Oui, supprimer",
+      onConfirm: () => deleteUser(user.id),
+    });
 
   };
 
@@ -430,6 +430,8 @@ export default function UsersByRole({ role }) {
         </Modal>
 
       )}
+
+      <ConfirmDialog />
 
     </>
 

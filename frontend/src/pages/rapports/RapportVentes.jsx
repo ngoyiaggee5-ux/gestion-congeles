@@ -11,7 +11,9 @@ import {
 import PageHeader from "../../components/PageHeader";
 import ReportPeriodFilter from "../../components/ReportPeriodFilter";
 import ReportPrintHeader from "../../components/ReportPrintHeader";
+import ReportAdvice from "../../components/ReportAdvice";
 import { useApp } from "../../data/AppContext";
+import { getSalesReportAdvice } from "../../utils/reportAdvice";
 import { getChartTheme } from "../../utils/chartTheme";
 import { filterByPeriod } from "../../utils/reportPeriod";
 import { useReportPeriod } from "../../hooks/useReportPeriod";
@@ -43,6 +45,13 @@ export default function RapportVentes() {
   ];
 
   const totalPeriod = filteredSales.reduce((s, sale) => s + sale.total, 0);
+
+  const advice = getSalesReportAdvice({
+    filteredSales,
+    byType,
+    totalPeriod,
+    formatMoney,
+  });
 
   return (
     <>
@@ -86,6 +95,8 @@ export default function RapportVentes() {
             <div className="stat-value stat-value-sm">{formatMoney(byType[1].total)}</div>
           </div>
         </div>
+
+        <ReportAdvice items={advice} />
 
         <div className="panel mb-3 no-print">
           <div className="chart-box">

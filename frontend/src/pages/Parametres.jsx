@@ -30,6 +30,12 @@ export default function Parametres() {
     setSaved(true);
   };
 
+  const selectFont = async (font) => {
+    setDraft((prev) => ({ ...prev, font }));
+    await updateSettings({ font });
+    setSaved(true);
+  };
+
   const save = async () => {
     await updateSettings({
       font: draft.font,
@@ -87,7 +93,7 @@ export default function Parametres() {
                     <Form.Label>Police de l’interface</Form.Label>
                     <Form.Select
                       value={draft.font}
-                      onChange={(e) => onChange("font", e.target.value)}
+                      onChange={(e) => selectFont(e.target.value)}
                     >
                       <option value="dm-sans">DM Sans (moderne)</option>
                       <option value="outfit">Outfit (compacte)</option>
@@ -97,7 +103,7 @@ export default function Parametres() {
                   </Form.Group>
                 </Col>
                 <Col md={6}>
-                  <div className="settings-preview">
+                  <div className="settings-preview" data-font-preview={draft.font}>
                     <div className="settings-preview-title">Aperçu</div>
                     <h4>MBALA KWA SELEMANI</h4>
                     <p>Gestion de congelé — ventes, stock et facturation.</p>

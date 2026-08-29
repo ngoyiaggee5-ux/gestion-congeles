@@ -22,7 +22,8 @@ Route::get('/health', fn () => response()->json([
 ]));
 
 Route::prefix('v1')->group(function () {
-    Route::get('/public/invoices/verify/{number}', [InvoiceController::class, 'verify']);
+    Route::get('/public/invoices/verify/{number}', [InvoiceController::class, 'verify'])
+        ->middleware('throttle:20,1');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
     Route::middleware('auth:sanctum')->group(function () {
@@ -113,6 +114,8 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/invoices', [InvoiceController::class, 'index'])
             ->middleware('role:'.P::BILLING_HISTORY);
+        Route::post('/invoices/purge', [InvoiceController::class, 'destroyAll'])
+            ->middleware('role:'.P::BILLING_DELETE);
         Route::post('/invoices', [InvoiceController::class, 'store'])
             ->middleware('role:'.P::BILLING_GENERATE);
         Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])

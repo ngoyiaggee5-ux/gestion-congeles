@@ -1,4 +1,4 @@
-import { Row, Col, Table } from "react-bootstrap";
+import { Table } from "react-bootstrap";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -17,6 +17,8 @@ import { useApp } from "../data/AppContext";
 import { getChartTheme } from "../utils/chartTheme";
 import { formatCdfAsUsd, normalizeSettings } from "../utils/settings";
 import { PERMISSIONS } from "../utils/permissions";
+import { sumStockByCategory } from "../utils/ids";
+import { localDateKey, isSameLocalDay, isoToLocalDateKey } from "../utils/localDate";
 
 export default function Dashboard() {
   const { data, formatMoney, stockStatus, getCategoryName, can, formatDate } = useApp();
@@ -25,168 +27,146 @@ export default function Dashboard() {
   const totalStock = data.products.reduce((s, p) => s + p.stock, 0);
   const lowStock = data.products.filter((p) => stockStatus(p) !== "ok");
   const salesTotalCdf = data.sales.reduce((s, sale) => s + sale.total, 0);
-  const clients = data.clients.length;
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = localDateKey();
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayKey = localDateKey(yesterdayDate);
   const todaySales = data.sales.filter((sale) =>
-    (sale.created_at || "").startsWith(todayKey)
+    isSameLocalDay(sale.created_at, todayKey)
+  );
+  const yesterdaySales = data.sales.filter((sale) =>
+    isSameLocalDay(sale.created_at, yesterdayKey)
   );
   const todayTotalCdf = todaySales.reduce((s, sale) => s + sale.total, 0);
-  const recentLogs = (data.activityLogs || []).slice(0, 8);
+  const yesterdayTotalCdf = yesterdaySales.reduce((s, sale) => s + sale.total, 0);
+  const salesTrend =
+    yesterdayTotalCdf > 0
+      ? Math.round(((todayTotalCdf - yesterdayTotalCdf) / yesterdayTotalCdf) * 100)
+      : null;
+  const recentLogs = (data.activityLogs || []).slice(0, 5);
 
   const salesByDay = Object.values(
     data.sales.reduce((acc, sale) => {
-      const day = sale.created_at.slice(0, 10);
+      const day = isoToLocalDateKey(sale.created_at);
+      if (!day) return acc;
       acc[day] = acc[day] || { day, total: 0 };
       acc[day].total += sale.total;
       return acc;
     }, {})
-  );
+  ).sort((a, b) => a.day.localeCompare(b.day));
 
-  const stockByCategory = data.categories.map((cat) => ({
-    name: cat.name,
-    stock: data.products
-      .filter((p) => p.category_id === cat.id)
-      .reduce((s, p) => s + p.stock, 0),
-  }));
+  const stockByCategory = data.categories
+    .map((cat) => ({
+      name: cat.name,
+      stock: sumStockByCategory(data.products, cat.id),
+    }))
+    .filter((entry) => entry.stock > 0);
+
+  const quickActions = [
+    can(PERMISSIONS.salesDetail) && {
+      to: "/ventes/detail",
+      icon: "bi-shop-window",
+      label: "Caisse détail",
+    },
+    can(PERMISSIONS.salesCart) && {
+      to: "/ventes/panier",
+      icon: "bi-basket",
+      label: "Panier",
+      badge: data.cart?.length || 0,
+    },
+    can(PERMISSIONS.stockView) && {
+      to: "/stock/disponible",
+      icon: "bi-boxes",
+      label: "Stock",
+    },
+    can(PERMISSIONS.billingHistory) && {
+      to: "/facturation/historique",
+      icon: "bi-receipt-cutoff",
+      label: "Factures",
+    },
+  ].filter(Boolean);
 
   return (
     <>
       <PageHeader
         title="Tableau de bord"
-        subtitle="Vue d’ensemble de votre congélateur commercial MBALA KWA SELEMANI."
+        subtitle="L’essentiel du jour — caisse, stock et alertes."
         badge="Aujourd’hui"
       />
 
       <SmartInsights />
 
-      <div className="stat-grid mb-4">
-        <div className="stat-card stat-card-green">
-          <div className="stat-icon">
-            <i className="bi bi-box-seam" />
-          </div>
-          <div className="stat-label">Produits en stock</div>
-          <div className="stat-value">{totalStock}</div>
-          <div className="stat-hint">{data.products.length} références</div>
-        </div>
-        <div className="stat-card stat-card-ice">
-          <div className="stat-icon">
-            <i className="bi bi-calendar-day" />
-          </div>
-          <div className="stat-label">Ventes du jour</div>
-          <div className="stat-value stat-value-sm">{formatMoney(todayTotalCdf)}</div>
-          <div className="stat-hint">
-            {todaySales.length} ticket{todaySales.length !== 1 ? "s" : ""} aujourd’hui
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">
-            <i className="bi bi-graph-up-arrow" />
-          </div>
-          <div className="stat-label">Ventes cumulées</div>
-          <div className="stat-value stat-value-sm">{formatMoney(salesTotalCdf)}</div>
-          <div className="stat-hint">
-            {data.sales.length} ticket{data.sales.length !== 1 ? "s" : ""}
-            {salesTotalCdf > 0 && (
-              <>
+      <div className="bento-dashboard">
+        <section className="bento-tile bento-hero liquid-glass">
+          <div className="bento-hero-label">Ventes du jour</div>
+          <div className="bento-hero-value">{formatMoney(todayTotalCdf)}</div>
+          <div className="bento-hero-meta">
+            {todaySales.length} ticket{todaySales.length !== 1 ? "s" : ""}
+            {salesTrend !== null && (
+              <span className={`stat-trend ${salesTrend >= 0 ? "up" : "down"}`}>
                 {" "}
-                ·{" "}
-                {settings.currency === "USD"
-                  ? `${salesTotalCdf.toLocaleString("fr-FR")} FC`
-                  : formatCdfAsUsd(salesTotalCdf, settings)}
-              </>
+                · {salesTrend >= 0 ? "+" : ""}
+                {salesTrend}% vs hier
+              </span>
             )}
           </div>
-        </div>
-        <div className="stat-card stat-card-amber">
-          <div className="stat-icon">
-            <i className="bi bi-exclamation-triangle" />
-          </div>
+          {can(PERMISSIONS.salesDetail) && (
+            <Link to="/ventes/detail" className="bento-hero-cta">
+              Ouvrir la caisse <i className="bi bi-arrow-right" />
+            </Link>
+          )}
+        </section>
+
+        <section className="bento-tile bento-stat">
+          <div className="stat-label">Stock (unités)</div>
+          <div className="stat-value">{totalStock}</div>
+          <div className="stat-hint">{data.products.length} références</div>
+        </section>
+
+        <section className="bento-tile bento-stat bento-stat-amber">
           <div className="stat-label">Alertes stock</div>
           <div className="stat-value">{lowStock.length}</div>
-          <div className="stat-hint">À réapprovisionner</div>
-        </div>
-        <div className="stat-card stat-card-purple">
-          <div className="stat-icon">
-            <i className="bi bi-people" />
-          </div>
-          <div className="stat-label">Clients</div>
-          <div className="stat-value">{clients}</div>
           <div className="stat-hint">
-            <Link to="/clients" className="stat-link">
-              Gérer les clients →
-            </Link>
+            {lowStock.length === 0 ? "Tout va bien" : "À réapprovisionner"}
           </div>
-        </div>
-      </div>
+        </section>
 
-      <Row className="g-3 mb-3">
-        <Col lg={can(PERMISSIONS.reportsSales) ? 7 : 12}>
-          <div className="panel">
-            <h3 className="panel-title">Ventes du jour</h3>
-            <Table responsive hover size="sm">
-              <thead>
-                <tr>
-                  <th>N°</th>
-                  <th>Client</th>
-                  <th>Type</th>
-                  <th>Heure</th>
-                  <th className="text-end">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {todaySales.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="empty-state">
-                      Aucune vente enregistrée aujourd’hui.
-                    </td>
-                  </tr>
-                )}
-                {todaySales.map((sale) => (
-                  <tr key={sale.id}>
-                    <td className="fw-semibold">{sale.number}</td>
-                    <td>{sale.client_name || "Client passage"}</td>
-                    <td className="text-capitalize">{sale.type}</td>
-                    <td>
-                      {sale.created_at
-                        ? new Date(sale.created_at).toLocaleTimeString("fr-FR", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "—"}
-                    </td>
-                    <td className="text-end fw-semibold">{formatMoney(sale.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
+        <section className="bento-tile bento-stat">
+          <div className="stat-label">CA cumulé</div>
+          <div className="stat-value stat-value-sm">{formatMoney(salesTotalCdf)}</div>
+          <div className="stat-hint">
+            {settings.currency === "USD"
+              ? `${salesTotalCdf.toLocaleString("fr-FR")} FC`
+              : formatCdfAsUsd(salesTotalCdf, settings)}
           </div>
-        </Col>
-        {can(PERMISSIONS.reportsSales) && (
-          <Col lg={5}>
-            <div className="panel">
-              <h3 className="panel-title">Journal d’activité</h3>
-              <ul className="activity-log-list mb-0">
-                {recentLogs.length === 0 && (
-                  <li className="text-muted">Aucune activité récente.</li>
-                )}
-                {recentLogs.map((log) => (
-                  <li key={log.id}>
-                    <div className="activity-log-summary">{log.summary}</div>
-                    <div className="activity-log-meta">
-                      {log.user_name} · {formatDate(log.created_at)}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+        </section>
+
+        {quickActions.length > 0 && (
+          <section className="bento-tile bento-actions">
+            <h3 className="panel-title">Accès rapide</h3>
+            <div className="bento-action-row">
+              {quickActions.map((action) => (
+                <Link key={action.to} to={action.to} className="bento-action">
+                  <i className={`bi ${action.icon}`} />
+                  <span>{action.label}</span>
+                  {action.badge > 0 && (
+                    <em className="bento-action-badge">{action.badge}</em>
+                  )}
+                </Link>
+              ))}
             </div>
-          </Col>
+          </section>
         )}
-      </Row>
 
-      <Row className="g-3 mb-3">
-        <Col lg={7}>
-          <div className="panel">
-            <h3 className="panel-title">Évolution des ventes</h3>
+        <section className="bento-tile bento-chart">
+          <h3 className="panel-title">Évolution des ventes</h3>
+          {salesByDay.length === 0 ? (
+            <div className="empty-state-modern chart-empty">
+              <i className="bi bi-graph-up" />
+              <h3>Pas encore de ventes</h3>
+              <p>Les encaissements du jour apparaîtront ici.</p>
+            </div>
+          ) : (
             <div className="chart-box">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={salesByDay}>
@@ -221,20 +201,27 @@ export default function Dashboard() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </div>
-        </Col>
-        <Col lg={5}>
-          <div className="panel">
-            <h3 className="panel-title">Stock par catégorie</h3>
-            <div className="chart-box">
+          )}
+        </section>
+
+        <section className="bento-tile bento-chart-sm liquid-glass">
+          <h3 className="panel-title">Stock par catégorie</h3>
+          {stockByCategory.length === 0 ? (
+            <div className="empty-state-modern chart-empty">
+              <i className="bi bi-bar-chart" />
+              <h3>Aucun stock</h3>
+              <p>Ajoutez des produits pour alimenter ce graphique.</p>
+            </div>
+          ) : (
+            <div className="chart-box chart-box-sm">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stockByCategory}>
                   <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: chart.tick }} />
-                  <YAxis tick={{ fontSize: 12, fill: chart.tick }} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: chart.tick }} />
+                  <YAxis tick={{ fontSize: 11, fill: chart.tick }} />
                   <Tooltip
                     contentStyle={{
-                      background: data.settings?.theme === "dark" ? "#0f1f1a" : "#fff",
+                      background: settings.theme === "dark" ? "#0f1f1a" : "#fff",
                       border: `1px solid ${chart.grid}`,
                       borderRadius: 12,
                       color: chart.tick,
@@ -244,41 +231,75 @@ export default function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
-        </Col>
-      </Row>
+          )}
+        </section>
 
-      <div className="panel">
-        <h3 className="panel-title">Alertes de stock froid</h3>
-        <Table responsive hover>
-          <thead>
-            <tr>
-              <th>Produit</th>
-              <th>Catégorie</th>
-              <th>Stock</th>
-              <th>Seuil</th>
-              <th>Statut</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lowStock.length === 0 && (
-              <tr>
-                <td colSpan={5} className="empty-state">
-                  Aucune alerte — stock sous contrôle.
-                </td>
-              </tr>
+        <section className="bento-tile bento-list">
+          <div className="bento-list-head">
+            <h3 className="panel-title mb-0">Tickets du jour</h3>
+            {can(PERMISSIONS.reportsSales) && (
+              <Link to="/rapports/ventes" className="stat-link">
+                Voir rapports →
+              </Link>
             )}
-            {lowStock.map((p) => {
-              const status = stockStatus(p);
-              return (
-                <tr key={p.id}>
-                  <td className="fw-semibold">{p.name}</td>
-                  <td>{getCategoryName(p.category_id)}</td>
-                  <td>
-                    {p.stock} {p.unit}
-                  </td>
-                  <td>{p.min_stock}</td>
-                  <td>
+          </div>
+          {todaySales.length === 0 ? (
+            <div className="empty-state-modern">
+              <i className="bi bi-receipt" />
+              <h3>Aucune vente aujourd’hui</h3>
+              <p>Ouvrez la caisse pour enregistrer le premier ticket.</p>
+            </div>
+          ) : (
+            <Table responsive hover size="sm" className="mb-0">
+              <thead>
+                <tr>
+                  <th>N°</th>
+                  <th>Client</th>
+                  <th>Heure</th>
+                  <th className="text-end">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {todaySales.slice(0, 8).map((sale) => (
+                  <tr key={sale.id}>
+                    <td className="fw-semibold">{sale.number}</td>
+                    <td>{sale.client_name || "Client passage"}</td>
+                    <td>
+                      {sale.created_at
+                        ? new Date(sale.created_at).toLocaleTimeString("fr-FR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "—"}
+                    </td>
+                    <td className="text-end fw-semibold">{formatMoney(sale.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </section>
+
+        <section className="bento-tile bento-alerts">
+          <h3 className="panel-title">Alertes stock froid</h3>
+          {lowStock.length === 0 ? (
+            <div className="empty-state-modern">
+              <i className="bi bi-check-circle" />
+              <h3>Stock sous contrôle</h3>
+              <p>Aucune rupture ni seuil bas pour le moment.</p>
+            </div>
+          ) : (
+            <ul className="bento-alert-list">
+              {lowStock.slice(0, 6).map((p) => {
+                const status = stockStatus(p);
+                return (
+                  <li key={p.id}>
+                    <div>
+                      <strong>{p.name}</strong>
+                      <span>
+                        {getCategoryName(p.category_id)} · {p.stock} {p.unit}
+                      </span>
+                    </div>
                     <span
                       className={`badge-stock ${
                         status === "out" ? "badge-out" : "badge-low"
@@ -286,12 +307,32 @@ export default function Dashboard() {
                     >
                       {status === "out" ? "Rupture" : "Faible"}
                     </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Table>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {can(PERMISSIONS.reportsSales) && (
+          <section className="bento-tile bento-activity">
+            <h3 className="panel-title">Activité récente</h3>
+            {recentLogs.length === 0 ? (
+              <p className="text-muted mb-0">Aucune activité récente.</p>
+            ) : (
+              <ul className="activity-log-list mb-0">
+                {recentLogs.map((log) => (
+                  <li key={log.id}>
+                    <div className="activity-log-summary">{log.summary}</div>
+                    <div className="activity-log-meta">
+                      {log.user_name} · {formatDate(log.created_at)}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
       </div>
     </>
   );

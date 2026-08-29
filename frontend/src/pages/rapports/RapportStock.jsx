@@ -10,9 +10,12 @@ import {
 import PageHeader from "../../components/PageHeader";
 import ReportPeriodFilter from "../../components/ReportPeriodFilter";
 import ReportPrintHeader from "../../components/ReportPrintHeader";
+import ReportAdvice from "../../components/ReportAdvice";
 import { useApp } from "../../data/AppContext";
+import { getStockReportAdvice } from "../../utils/reportAdvice";
 import { getChartTheme } from "../../utils/chartTheme";
 import { filterByPeriod } from "../../utils/reportPeriod";
+import { sumStockByCategory } from "../../utils/ids";
 import { useReportPeriod } from "../../hooks/useReportPeriod";
 
 const COLORS_LIGHT = ["#0b6e4f", "#1a9bb8", "#d97706", "#64748b"];
@@ -32,12 +35,14 @@ export default function RapportStock() {
     periodState.range
   );
 
-  const pie = data.categories.map((c) => ({
-    name: c.name,
-    value: data.products
-      .filter((p) => p.category_id === c.id)
-      .reduce((s, p) => s + p.stock, 0),
-  }));
+  const pie = data.categories
+    .map((category) => ({
+      name: category.name,
+      value: sumStockByCategory(data.products, category.id),
+    }))
+    .filter((entry) => entry.value > 0);
+
+  const pieTotal = pie.reduce((sum, entry) => sum + entry.value, 0);
 
   const valeur = data.products.reduce(
     (s, p) => s + p.stock * p.price_wholesale,
@@ -50,6 +55,16 @@ export default function RapportStock() {
   const sorties = filteredMovements
     .filter((m) => m.type === "sortie")
     .reduce((s, m) => s + m.quantity, 0);
+
+  const advice = getStockReportAdvice({
+    data,
+    stockStatus,
+    filteredMovements,
+    entrees,
+    sorties,
+    valeur,
+    formatMoney,
+  });
 
   return (
     <>
@@ -94,28 +109,58 @@ export default function RapportStock() {
           </div>
         </div>
 
-        <div className="panel mb-3 no-print">
+        <ReportAdvice items={advice} />
+
+        <div className="panel mb-3 no-print liquid-glass">
           <h3 className="panel-title">Répartition par catégorie</h3>
-          <div className="chart-box">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={pie} dataKey="value" nameKey="name" outerRadius={100} label>
-                  {pie.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: dark ? "#0f1f1a" : "#fff",
-                    border: `1px solid ${chart.grid}`,
-                    borderRadius: 12,
-                    color: chart.tick,
-                  }}
-                />
-                <Legend wrapperStyle={{ color: chart.tick }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          {pie.length === 0 ? (
+            <div className="empty-state-modern chart-empty">
+              <i className="bi bi-pie-chart" />
+              <h3>Aucune donnée à afficher</h3>
+              <p>
+                {data.categories.length === 0
+                  ? "Ajoutez des catégories et des produits pour voir la répartition."
+                  : "Le stock est vide ou non réparti par catégorie."}
+              </p>
+            </div>
+          ) : (
+            <div className="chart-box chart-box-pie">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pie}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={58}
+                    outerRadius={96}
+                    paddingAngle={3}
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
+                    }
+                  >
+                    {pie.map((entry, index) => (
+                      <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) => [`${value} unités`, "Stock"]}
+                    contentStyle={{
+                      background: dark ? "rgba(15, 31, 26, 0.92)" : "rgba(255,255,255,0.92)",
+                      border: `1px solid ${chart.grid}`,
+                      borderRadius: 12,
+                      color: chart.tick,
+                      backdropFilter: "blur(12px)",
+                    }}
+                  />
+                  <Legend wrapperStyle={{ color: chart.tick }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="chart-pie-total">
+                Total stock
+                <strong>{pieTotal}</strong>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="panel mb-3">

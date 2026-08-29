@@ -6,6 +6,11 @@ export async function fetchAppState(cart) {
   return mapAppState(data, cart ?? loadCartFromStorage());
 }
 
+export async function fetchInvoices() {
+  const { data } = await apiClient.get("/invoices");
+  return data || [];
+}
+
 export async function reloadAfterMutation(cart) {
   if (cart !== undefined) saveCartToStorage(cart);
   return fetchAppState(cart);

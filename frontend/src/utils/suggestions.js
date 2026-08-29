@@ -1,3 +1,5 @@
+import { localDateKey, isSameLocalDay } from "./localDate";
+
 function normalize(value = "") {
   return value
     .normalize("NFD")
@@ -137,8 +139,10 @@ export function getSmartInsights(data, stockStatus) {
   const outOfStock = data.products.filter((p) => stockStatus(p) === "out");
   const lowStock = data.products.filter((p) => stockStatus(p) === "low");
   const cartCount = data.cart.reduce((n, i) => n + i.quantity, 0);
-  const today = new Date().toISOString().slice(0, 10);
-  const todaySales = data.sales.filter((s) => s.created_at.startsWith(today));
+  const today = localDateKey();
+  const todaySales = data.sales.filter((s) =>
+    isSameLocalDay(s.created_at, today)
+  );
 
   if (cartCount > 0) {
     insights.push({

@@ -4,9 +4,10 @@ import {
   formatPeriodLabel,
   getPeriodRange,
 } from "../utils/reportPeriod";
+import { localDateKey } from "../utils/localDate";
 
 export function useReportPeriod(defaultPeriod = PERIOD_TYPES.monthly) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateKey();
   const [period, setPeriod] = useState(defaultPeriod);
   const [referenceDate, setReferenceDate] = useState(today);
   const [customEndDate, setCustomEndDate] = useState(today);

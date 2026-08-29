@@ -7,9 +7,24 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    private function indexExists(string $table, string $index): bool
+    {
+        $connection = Schema::getConnection();
+        $database = $connection->getDatabaseName();
+
+        $result = $connection->select(
+            'SELECT COUNT(*) AS total FROM information_schema.statistics
+             WHERE table_schema = ? AND table_name = ? AND index_name = ?',
+            [$database, $table, $index]
+        );
+
+        return (int) ($result[0]->total ?? 0) > 0;
+    }
+
     public function up(): void
     {
-        Schema::create('activity_logs', function (Blueprint $table) {
+        if (! Schema::hasTable('activity_logs')) {
+            Schema::create('activity_logs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->string('user_name');
@@ -19,19 +34,26 @@ return new class extends Migration
             $table->string('summary');
             $table->json('meta')->nullable();
             $table->timestamps();
-        });
+            });
+        }
 
         Schema::table('invoices', function (Blueprint $table) {
-            $table->string('verification_code', 32)->nullable()->after('status');
+            if (! Schema::hasColumn('invoices', 'verification_code')) {
+                $table->string('verification_code', 32)->nullable()->after('status');
+            }
         });
 
-        Schema::table('categories', function (Blueprint $table) {
-            $table->unique('name');
-        });
+        if (! $this->indexExists('categories', 'categories_name_unique')) {
+            Schema::table('categories', function (Blueprint $table) {
+                $table->unique('name');
+            });
+        }
 
-        Schema::table('clients', function (Blueprint $table) {
-            $table->unique('email');
-        });
+        if (! $this->indexExists('clients', 'clients_email_unique')) {
+            Schema::table('clients', function (Blueprint $table) {
+                $table->unique('email');
+            });
+        }
 
         if (Schema::hasTable('invoices')) {
             $invoices = DB::table('invoices')->select('id', 'number', 'total', 'verification_code')->get();

@@ -1,6 +1,7 @@
 import { NavLink, Link } from "react-router-dom";
 import { Accordion } from "react-bootstrap";
 import Logo from "./Logo";
+import VfButton from "./VfButton";
 import { useApp } from "../data/AppContext";
 import { PERMISSIONS } from "../utils/permissions";
 
@@ -113,7 +114,7 @@ function filterSections(can) {
     .filter(Boolean);
 }
 
-export default function Sidebar({ open, onClose }) {
+export default function Sidebar({ open, collapsed, onClose, onToggleCollapse }) {
   const { can } = useApp();
   const visibleSections = filterSections(can);
   const showDashboard = can(PERMISSIONS.dashboard);
@@ -121,13 +122,15 @@ export default function Sidebar({ open, onClose }) {
   return (
     <>
       {open && <div className="sidebar-backdrop" onClick={onClose} />}
-      <aside className={`sidebar ${open ? "open" : ""}`}>
-        <Link to="/" className="brand" onClick={onClose}>
-          <Logo size={46} />
-          <div>
-            <p className="brand-title">MBALA KWA SELEMANI</p>
-            <p className="brand-sub">Gestion congelé</p>
-          </div>
+      <aside className={`sidebar ${open ? "open" : ""}${collapsed ? " collapsed" : ""}`}>
+        <Link to="/" className="brand" onClick={onClose} title="MBALA KWA SELEMANI">
+          <Logo size={collapsed ? 40 : 46} />
+          {!collapsed && (
+            <div>
+              <p className="brand-title">MBALA KWA SELEMANI</p>
+              <p className="brand-sub">Gestion congelé</p>
+            </div>
+          )}
         </Link>
 
         {showDashboard && (
@@ -138,59 +141,92 @@ export default function Sidebar({ open, onClose }) {
               `nav-section-btn ${isActive ? "active" : ""}`
             }
             onClick={onClose}
+            title="Tableau de bord"
             style={{ marginBottom: "0.4rem" }}
           >
             <span>
               <i className="bi bi-speedometer2" />
-              Tableau de bord
+              {!collapsed && "Tableau de bord"}
             </span>
           </NavLink>
         )}
 
-        <Accordion flush alwaysOpen defaultActiveKey={visibleSections.map((s) => s.key)}>
-          {visibleSections.map((section) =>
-            section.to ? (
-              <div className="nav-section" key={section.key}>
+        {!collapsed ? (
+          <Accordion flush alwaysOpen defaultActiveKey={visibleSections.map((s) => s.key)}>
+            {visibleSections.map((section) =>
+              section.to ? (
+                <div className="nav-section" key={section.key}>
+                  <NavLink
+                    to={section.to}
+                    className={({ isActive }) =>
+                      `nav-section-btn ${isActive ? "active" : ""}`
+                    }
+                    onClick={onClose}
+                  >
+                    <span>
+                      <i className={`bi ${section.icon}`} />
+                      {section.label}
+                    </span>
+                  </NavLink>
+                </div>
+              ) : (
+                <Accordion.Item
+                  eventKey={section.key}
+                  key={section.key}
+                  className="bg-transparent border-0"
+                >
+                  <Accordion.Header className="nav-acc-header">
+                    <span>
+                      <i className={`bi ${section.icon} me-2`} />
+                      {section.label}
+                    </span>
+                  </Accordion.Header>
+                  <Accordion.Body className="p-0">
+                    <ul className="nav-sub">
+                      {section.items.map((item) => (
+                        <li key={item.to}>
+                          <NavLink to={item.to} onClick={onClose}>
+                            {item.label}
+                          </NavLink>
+                        </li>
+                      ))}
+                    </ul>
+                  </Accordion.Body>
+                </Accordion.Item>
+              )
+            )}
+          </Accordion>
+        ) : (
+          <div className="sidebar-icon-nav">
+            {visibleSections.map((section) => {
+              const target = section.to || section.items?.[0]?.to || "/";
+              return (
                 <NavLink
-                  to={section.to}
+                  key={section.key}
+                  to={target}
                   className={({ isActive }) =>
-                    `nav-section-btn ${isActive ? "active" : ""}`
+                    `sidebar-icon-link ${isActive ? "active" : ""}`
                   }
                   onClick={onClose}
+                  title={section.label}
                 >
-                  <span>
-                    <i className={`bi ${section.icon}`} />
-                    {section.label}
-                  </span>
+                  <i className={`bi ${section.icon}`} />
                 </NavLink>
-              </div>
-            ) : (
-              <Accordion.Item
-                eventKey={section.key}
-                key={section.key}
-                className="bg-transparent border-0"
-              >
-                <Accordion.Header className="nav-acc-header">
-                  <span>
-                    <i className={`bi ${section.icon} me-2`} />
-                    {section.label}
-                  </span>
-                </Accordion.Header>
-                <Accordion.Body className="p-0">
-                  <ul className="nav-sub">
-                    {section.items.map((item) => (
-                      <li key={item.to}>
-                        <NavLink to={item.to} onClick={onClose}>
-                          {item.label}
-                        </NavLink>
-                      </li>
-                    ))}
-                  </ul>
-                </Accordion.Body>
-              </Accordion.Item>
-            )
-          )}
-        </Accordion>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="sidebar-footer">
+          <VfButton
+            variant="ghost"
+            size="sm"
+            className="sidebar-collapse-btn"
+            onClick={onToggleCollapse}
+            icon={collapsed ? "bi-chevron-double-right" : "bi-chevron-double-left"}
+            aria-label={collapsed ? "Étendre le menu" : "Réduire le menu"}
+          />
+        </div>
       </aside>
     </>
   );

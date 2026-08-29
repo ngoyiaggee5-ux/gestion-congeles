@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge, Button, Form, Modal, Table } from "react-bootstrap";
 import PageHeader from "../../components/PageHeader";
 import PasswordField from "../../components/PasswordField";
+import { useConfirmDialog } from "../../components/ConfirmDialog";
 import { useApp } from "../../data/AppContext";
 import { apiErrorMessage } from "../../utils/apiSync";
 import { validatePasswordStrength } from "../../utils/passwordPolicy";
@@ -24,7 +25,7 @@ export default function UsersAll() {
     refreshData,
     isApiMode,
   } = useApp();
-
+  const { askConfirm, ConfirmDialog } = useConfirmDialog();
   const [show, setShow] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -117,14 +118,14 @@ export default function UsersAll() {
     }
   };
 
-  const handleDelete = async (user) => {
-    if (user.id === currentUser?.id) {
-      alert("Vous ne pouvez pas supprimer votre propre compte.");
-      return;
-    }
-    if (confirm(`Supprimer l'utilisateur ${user.name} ?`)) {
-      await deleteUser(user.id);
-    }
+  const handleDelete = (user) => {
+    if (user.id === currentUser?.id) return;
+    askConfirm({
+      title: "Supprimer l'utilisateur",
+      message: `Voulez-vous supprimer ${user.name} ?`,
+      confirmLabel: "Oui, supprimer",
+      onConfirm: () => deleteUser(user.id),
+    });
   };
 
   return (
@@ -322,6 +323,7 @@ export default function UsersAll() {
           </Form>
         </Modal>
       )}
+      <ConfirmDialog />
     </>
   );
 }

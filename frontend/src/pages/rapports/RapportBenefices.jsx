@@ -3,7 +3,9 @@ import { Table } from "react-bootstrap";
 import PageHeader from "../../components/PageHeader";
 import ReportPeriodFilter from "../../components/ReportPeriodFilter";
 import ReportPrintHeader from "../../components/ReportPrintHeader";
+import ReportAdvice from "../../components/ReportAdvice";
 import { useApp } from "../../data/AppContext";
+import { getProfitReportAdvice } from "../../utils/reportAdvice";
 import { filterByPeriod } from "../../utils/reportPeriod";
 import { useReportPeriod } from "../../hooks/useReportPeriod";
 
@@ -40,11 +42,19 @@ export default function RapportBenefices() {
   const totalCost = rows.reduce((s, r) => s + r.cost, 0);
   const totalProfit = totalSales - totalCost;
 
+  const advice = getProfitReportAdvice({
+    rows,
+    totalSales,
+    totalProfit,
+    formatMoney,
+  });
+
   return (
     <>
       <PageHeader
-        title="Rapport bénéfices"
-        subtitle="Estimation des marges sur les ventes par période."
+        title="Estimation des bénéfices"
+        subtitle="Indicateur approximatif — coût estimé à 75 % du prix gros. Pas une comptabilité officielle."
+        badge="Estimation"
       />
 
       <ReportPeriodFilter
@@ -59,10 +69,16 @@ export default function RapportBenefices() {
 
       <div className="report-print-area">
         <ReportPrintHeader
-          title="Rapport des bénéfices"
+          title="Estimation des bénéfices"
           periodLabel={periodState.periodLabel}
-          subtitle={`Bénéfice net période : ${formatMoney(totalProfit)}`}
+          subtitle={`Bénéfice estimé : ${formatMoney(totalProfit)} (coût ≈ 75 % du prix gros)`}
         />
+
+        <div className="alert alert-warning report-estimate-banner no-print mb-3">
+          <i className="bi bi-info-circle me-2" />
+          Ces chiffres sont une <strong>estimation</strong>. Le coût d’achat réel
+          n’est pas encore saisi produit par produit.
+        </div>
 
         <div className="stat-grid mb-4 report-print-stats">
           <div className="stat-card stat-card-ice">
@@ -70,20 +86,22 @@ export default function RapportBenefices() {
             <div className="stat-value stat-value-sm">{formatMoney(totalSales)}</div>
           </div>
           <div className="stat-card stat-card-amber">
-            <div className="stat-label">Coût estimé</div>
+            <div className="stat-label">Coût estimé (≈75 % gros)</div>
             <div className="stat-value stat-value-sm">{formatMoney(totalCost)}</div>
           </div>
           <div className="stat-card stat-card-green">
-            <div className="stat-label">Bénéfice</div>
+            <div className="stat-label">Bénéfice estimé</div>
             <div className="stat-value stat-value-sm">{formatMoney(totalProfit)}</div>
           </div>
           <div className="stat-card stat-card-purple">
-            <div className="stat-label">Marge moyenne</div>
+            <div className="stat-label">Marge estimée</div>
             <div className="stat-value">
               {totalSales ? Math.round((totalProfit / totalSales) * 100) : 0}%
             </div>
           </div>
         </div>
+
+        <ReportAdvice items={advice} />
 
         <div className="panel">
           <h3 className="panel-title">Détail par vente</h3>

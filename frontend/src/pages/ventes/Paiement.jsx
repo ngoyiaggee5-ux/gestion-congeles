@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Form, Row, Col } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../../components/PageHeader";
@@ -11,12 +11,19 @@ import {
   cdfToUsd,
   usdToCdf,
 } from "../../utils/settings";
+import { cartLineTotal, formatCartQuantity } from "../../utils/saleAmount";
+
+function resolveSaleType(cart) {
+  const hasDetail = cart.some((i) => i.mode === "détail");
+  const hasGros = cart.some((i) => i.mode === "gros");
+  if (hasDetail) return "détail";
+  if (hasGros) return "gros";
+  return "détail";
+}
 
 export default function Paiement() {
   const { data, checkout, formatMoney, getProduct, suggestClients } = useApp();
-  const [type, setType] = useState(
-    data.cart.some((i) => i.mode === "gros") ? "gros" : "détail"
-  );
+  const [type, setType] = useState(() => resolveSaleType(data.cart));
   const [clientId, setClientId] = useState("");
   const [clientName, setClientName] = useState("");
   const [method, setMethod] = useState("espèces");
@@ -24,16 +31,29 @@ export default function Paiement() {
   const [received, setReceived] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [paying, setPaying] = useState(false);
   const navigate = useNavigate();
 
   const settings = data.settings;
   const usdRate = Number(settings?.usdRate) || 2800;
 
-  const items = useMemo(
-    () => data.cart.filter((i) => i.mode === type),
-    [data.cart, type]
+  const cartByMode = useMemo(
+    () => ({
+      détail: data.cart.filter((i) => i.mode === "détail"),
+      gros: data.cart.filter((i) => i.mode === "gros"),
+    }),
+    [data.cart]
   );
-  const totalCdf = items.reduce((s, i) => s + i.quantity * i.unit_price, 0);
+
+  useEffect(() => {
+    const currentItems = cartByMode[type];
+    if (currentItems.length) return;
+    if (cartByMode.détail.length) setType("détail");
+    else if (cartByMode.gros.length) setType("gros");
+  }, [cartByMode, type]);
+
+  const items = cartByMode[type];
+  const totalCdf = items.reduce((s, i) => s + cartLineTotal(i), 0);
   const totalUsd = cdfToUsd(totalCdf, settings);
   const receivedNum = parseFloat(received) || 0;
 
@@ -70,10 +90,9 @@ export default function Paiement() {
   const pickSuggestion = (item) => {
     setClientName(item.name);
     setClientId(item.id ? String(item.id) : "");
-    if (item.type === "gros" && type === "détail") setType("gros");
   };
 
-  const pay = (e) => {
+  const pay = async (e) => {
     e.preventDefault();
     if (!items.length) {
       setErr("Aucun article pour ce mode de vente.");
@@ -100,15 +119,31 @@ export default function Paiement() {
         return;
       }
     }
-    checkout({
-      client_id: clientId,
-      client_name: clientName.trim(),
-      payment_method: method,
-      type,
-    });
     setErr("");
-    setMsg("Paiement validé. Facture générée automatiquement.");
-    setTimeout(() => navigate("/facturation/historique"), 900);
+    setMsg("");
+    setPaying(true);
+    try {
+      const ok = await checkout({
+        client_id: clientId,
+        client_name: clientName.trim(),
+        payment_method: method,
+        type,
+      });
+      if (ok === false) {
+        setErr("Impossible de valider la vente.");
+        return;
+      }
+      setMsg("Paiement validé. Facture générée automatiquement.");
+      setTimeout(() => navigate("/facturation/historique"), 900);
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.errors?.items?.[0] ||
+        "Erreur lors du paiement. Réessayez ou contactez l'administrateur.";
+      setErr(message);
+    } finally {
+      setPaying(false);
+    }
   };
 
   return (
@@ -131,8 +166,12 @@ export default function Paiement() {
                       value={type}
                       onChange={(e) => setType(e.target.value)}
                     >
-                      <option value="détail">Détail</option>
-                      <option value="gros">Gros</option>
+                      <option value="détail" disabled={!cartByMode.détail.length}>
+                        Détail{cartByMode.détail.length ? ` (${cartByMode.détail.length})` : ""}
+                      </option>
+                      <option value="gros" disabled={!cartByMode.gros.length}>
+                        Gros{cartByMode.gros.length ? ` (${cartByMode.gros.length})` : ""}
+                      </option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -200,12 +239,15 @@ export default function Paiement() {
               )}
 
               <ul className="mt-3 mb-0">
-                {items.map((i) => (
+                {items.map((i) => {
+                  const product = getProduct(i.product_id);
+                  return (
                   <li key={`${i.product_id}-${i.mode}`}>
-                    {getProduct(i.product_id)?.name} × {i.quantity} —{" "}
-                    {formatMoney(i.quantity * i.unit_price)}
+                    {product?.name} — {formatCartQuantity(i.quantity, product?.unit)} —{" "}
+                    {formatMoney(cartLineTotal(i))}
                   </li>
-                ))}
+                  );
+                })}
                 {!items.length && (
                   <li className="text-muted">Aucun article pour ce type.</li>
                 )}
@@ -294,10 +336,10 @@ export default function Paiement() {
               <Button
                 type="submit"
                 className="btn-vf btn-modern mt-4"
-                disabled={!items.length}
+                disabled={!items.length || paying}
               >
                 <i className="bi bi-credit-card-2-front me-2" />
-                Confirmer le paiement
+                {paying ? "Validation…" : "Confirmer le paiement"}
               </Button>
             </Form>
           </div>

@@ -5,10 +5,40 @@ export const defaultSettings = {
   usdRate: 2800,
 };
 
+export const FONT_OPTIONS = ["dm-sans", "outfit", "system", "serif"];
+
+export const FONT_STACKS = {
+  "dm-sans": {
+    body: '"DM Sans", system-ui, sans-serif',
+    display: '"Outfit", system-ui, sans-serif',
+  },
+  outfit: {
+    body: '"Outfit", system-ui, sans-serif',
+    display: '"Outfit", system-ui, sans-serif',
+  },
+  system: {
+    body: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+    display: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+  },
+  serif: {
+    body: 'Georgia, "Times New Roman", serif',
+    display: 'Georgia, "Times New Roman", serif',
+  },
+};
+
+export function getFontStacks(font = defaultSettings.font) {
+  return FONT_STACKS[font] || FONT_STACKS["dm-sans"];
+}
+
 export function normalizeSettings(settings = defaultSettings) {
   const merged = { ...defaultSettings, ...settings };
+  const font = FONT_OPTIONS.includes(merged.font)
+    ? merged.font
+    : defaultSettings.font;
   return {
     ...merged,
+    font,
+    theme: merged.theme === "dark" ? "dark" : "light",
     currency: String(merged.currency || "CDF").toUpperCase(),
     usdRate: Number(merged.usdRate) || 2800,
   };
@@ -69,8 +99,19 @@ export function formatMoneyEquivalent(value, settings = defaultSettings) {
 }
 
 export function applyAppearance(settings = defaultSettings) {
-  const theme = settings?.theme || "light";
-  const font = settings?.font || "dm-sans";
-  document.documentElement.setAttribute("data-theme", theme);
-  document.documentElement.setAttribute("data-font", font);
+  const normalized = normalizeSettings(settings);
+  const { theme, font } = normalized;
+  const stacks = getFontStacks(font);
+  const root = document.documentElement;
+
+  root.setAttribute("data-theme", theme);
+  root.setAttribute("data-font", font);
+  root.style.setProperty("--font-body", stacks.body);
+  root.style.setProperty("--font-display", stacks.display);
+  root.style.setProperty("--bs-body-font-family", stacks.body);
+  root.style.setProperty("--bs-font-sans-serif", stacks.body);
+
+  if (document.body) {
+    document.body.style.fontFamily = stacks.body;
+  }
 }

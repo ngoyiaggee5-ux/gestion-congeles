@@ -1,14 +1,19 @@
 -- ============================================================
--- MBALA KWA SELEMANI — Schéma MySQL (XAMPP / phpMyAdmin)
--- Exécuter dans : phpMyAdmin → SQL → coller → Exécuter
+-- MBALA KWA SELEMANI — Installation MySQL Hostinger
+-- ============================================================
+-- 1. hPanel → Bases de données MySQL → créer la base
+-- 2. phpMyAdmin → sélectionner VOTRE base → onglet SQL
+-- 3. Remplacer ci-dessous le nom de base si besoin, puis Exécuter
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS mbala_kwa
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
+-- ⚠️ Hostinger : NE PAS utiliser un nom inventé ici.
+-- Dans phpMyAdmin, cliquez d'abord VOTRE base à gauche (ex. u192070974_xxx),
+-- puis exécutez ce script. La ligne USE ci-dessous doit être commentée
+-- ou remplacée par le nom EXACT affiché dans hPanel → Bases de données MySQL.
+--
+-- USE u192070974_VOTRE_NOM_DE_BASE;
 
-USE mbala_kwa;
-
+SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS sale_items;
@@ -18,6 +23,7 @@ DROP TABLE IF EXISTS sales;
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS clients;
 DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS activity_logs;
 DROP TABLE IF EXISTS personal_access_tokens;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS settings;
@@ -69,7 +75,7 @@ CREATE TABLE categories (
     UNIQUE KEY categories_name_unique (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Produits
+-- Produits (stock décimal kg)
 CREATE TABLE products (
     id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     category_id     BIGINT UNSIGNED NOT NULL,
@@ -78,8 +84,8 @@ CREATE TABLE products (
     unit            VARCHAR(255) NOT NULL DEFAULT 'kg',
     price_retail    INT UNSIGNED NOT NULL DEFAULT 0,
     price_wholesale INT UNSIGNED NOT NULL DEFAULT 0,
-    stock           INT UNSIGNED NOT NULL DEFAULT 0,
-    min_stock       INT UNSIGNED NOT NULL DEFAULT 0,
+    stock           DECIMAL(10,3) UNSIGNED NOT NULL DEFAULT 0,
+    min_stock       DECIMAL(10,3) UNSIGNED NOT NULL DEFAULT 0,
     description     TEXT NULL,
     created_at      TIMESTAMP NULL,
     updated_at      TIMESTAMP NULL,
@@ -127,13 +133,14 @@ CREATE TABLE sales (
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Lignes de vente
+-- Lignes de vente (quantité décimale + montant ligne)
 CREATE TABLE sale_items (
     id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     sale_id         BIGINT UNSIGNED NOT NULL,
     product_id      BIGINT UNSIGNED NOT NULL,
-    quantity        INT UNSIGNED NOT NULL,
+    quantity        DECIMAL(10,3) UNSIGNED NOT NULL,
     unit_price      INT UNSIGNED NOT NULL,
+    line_total      INT UNSIGNED NULL,
     created_at      TIMESTAMP NULL,
     updated_at      TIMESTAMP NULL,
     PRIMARY KEY (id),
@@ -144,7 +151,7 @@ CREATE TABLE sale_items (
         FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Factures
+-- Factures (avec code de vérification QR)
 CREATE TABLE invoices (
     id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `number`        VARCHAR(255) NOT NULL,
@@ -165,12 +172,12 @@ CREATE TABLE invoices (
         FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Mouvements de stock
+-- Mouvements de stock (quantité décimale)
 CREATE TABLE stock_movements (
     id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     product_id      BIGINT UNSIGNED NOT NULL,
     `type`          ENUM('entrée', 'sortie') NOT NULL,
-    quantity        INT UNSIGNED NOT NULL,
+    quantity        DECIMAL(10,3) UNSIGNED NOT NULL,
     unit_cost       INT UNSIGNED NOT NULL DEFAULT 0,
     reference       VARCHAR(255) NULL,
     note            VARCHAR(255) NULL,
@@ -211,10 +218,61 @@ CREATE TABLE settings (
     UNIQUE KEY settings_key_unique (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Suivi migrations Laravel (optionnel)
+-- Suivi migrations Laravel
 CREATE TABLE migrations (
     id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
     migration       VARCHAR(255) NOT NULL,
     batch           INT NOT NULL,
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO migrations (migration, batch) VALUES
+('2026_01_01_000000_create_personal_access_tokens_table', 1),
+('2026_01_01_000001_create_users_table', 1),
+('2026_01_01_000002_create_categories_table', 1),
+('2026_01_01_000003_create_products_table', 1),
+('2026_01_01_000004_create_clients_table', 1),
+('2026_01_01_000005_create_sales_table', 1),
+('2026_01_01_000006_create_invoices_table', 1),
+('2026_01_01_000007_create_stock_movements_table', 1),
+('2026_01_01_000008_create_settings_table', 1),
+('2026_08_26_000001_add_activity_logs_and_verification', 2),
+('2026_08_26_000002_decimal_stock_quantities', 2),
+('2026_08_26_000003_add_line_total_to_sale_items', 2);
+
+-- ============================================================
+-- Comptes utilisateurs (changez les mots de passe en production)
+-- ============================================================
+INSERT INTO users (name, email, password, role, active, created_at, updated_at)
+VALUES
+(
+  'Admin Principal',
+  'admin@mbala-kwa.ci',
+  '$2y$12$hV8clTJ4jDD3yGnFbKHwkuO.rgzfOtvtr2HOgxneJZmWwKYJk5QX.',
+  'admin',
+  1,
+  NOW(),
+  NOW()
+),
+(
+  'Marie Vendeur',
+  'marie@mbala-kwa.ci',
+  '$2y$12$RhjF2DFLR3BzBCzIWSS3vOSq5pd43bWwXcA4VUwVGdyEkWLBz5XdG',
+  'vendeur',
+  1,
+  NOW(),
+  NOW()
+),
+(
+  'Paul Manager',
+  'manager@mbala-kwa.ci',
+  '$2y$12$.9Zsh6gqJuKCtR4fYbJM6e3L3BSVbAB2Er9fhjJcmL/xMd4CZRgCm',
+  'manager',
+  1,
+  NOW(),
+  NOW()
+);
+
+-- admin@mbala-kwa.ci     → admin123
+-- marie@mbala-kwa.ci     → vendeur123
+-- manager@mbala-kwa.ci   → manager123

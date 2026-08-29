@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Table, Button, Modal, Form, Row, Col } from "react-bootstrap";
 import PageHeader from "../../components/PageHeader";
+import { useConfirmDialog } from "../../components/ConfirmDialog";
 import { useApp } from "../../data/AppContext";
 import { PERMISSIONS } from "../../utils/permissions";
 
@@ -13,6 +14,7 @@ export default function ModifierProduit() {
     formatMoney,
     can,
   } = useApp();
+  const { askConfirm, ConfirmDialog } = useConfirmDialog();
   const canDelete = can(PERMISSIONS.productsDelete);
   const [editing, setEditing] = useState(null);
 
@@ -64,9 +66,14 @@ export default function ModifierProduit() {
                   <Button
                     size="sm"
                     variant="outline-danger"
-                    onClick={() => {
-                      if (confirm("Supprimer ce produit ?")) deleteProduct(p.id);
-                    }}
+                    onClick={() =>
+                      askConfirm({
+                        title: "Supprimer le produit",
+                        message: `Voulez-vous supprimer « ${p.name} » ?`,
+                        confirmLabel: "Oui, supprimer",
+                        onConfirm: () => deleteProduct(p.id),
+                      })
+                    }
                     disabled={!canDelete}
                     title={canDelete ? "Supprimer" : "Réservé à l'administrateur"}
                   >
@@ -273,6 +280,7 @@ export default function ModifierProduit() {
           </Modal.Footer>
         </Form>
       </Modal>
+      <ConfirmDialog />
     </>
   );
 }

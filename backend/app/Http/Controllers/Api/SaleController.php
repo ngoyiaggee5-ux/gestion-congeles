@@ -9,20 +9,28 @@ use App\Models\Sale;
 use App\Models\StockMovement;
 use App\Support\ActivityLogger;
 use App\Support\InvoiceVerification;
+use App\Support\Permissions;
+use App\Support\SalePricing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class SaleController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return Sale::with(['items.product', 'client', 'invoice'])
-            ->latest()
-            ->get();
+        $query = Sale::with(['items.product', 'client', 'invoice'])->latest();
+
+        if (! Permissions::can($request->user()->role, Permissions::REPORTS_SALES)) {
+            $query->where('user_id', $request->user()->id);
+        }
+
+        return $query->get();
     }
 
-    public function show(Sale $sale)
+    public function show(Request $request, Sale $sale)
     {
+        $this->ensureSaleAccess($request, $sale);
+
         return $sale->load(['items.product', 'client', 'invoice']);
     }
 
@@ -35,14 +43,25 @@ class SaleController extends Controller
             'payment_method' => 'required|string|max:50',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.unit_price' => 'required|integer|min:0',
+            'items.*.quantity' => 'required|numeric|min:0.001',
+            'items.*.line_total' => 'nullable|integer|min:1',
         ]);
 
         return DB::transaction(function () use ($data, $request) {
-            $total = collect($data['items'])->sum(
-                fn ($item) => $item['quantity'] * $item['unit_price']
-            );
+            $resolvedItems = [];
+            $total = 0;
+
+            foreach ($data['items'] as $item) {
+                $product = Product::lockForUpdate()->findOrFail($item['product_id']);
+
+                if ($product->stock < $item['quantity']) {
+                    abort(422, "Stock insuffisant pour {$product->name}");
+                }
+
+                $line = SalePricing::resolveLine($product, $data['type'], $item);
+                $resolvedItems[] = ['product' => $product, 'line' => $line];
+                $total += $line['line_total'];
+            }
 
             $saleNumber = 'VT-'.now()->format('Y').'-'.str_pad(
                 Sale::count() + 1,
@@ -62,20 +81,22 @@ class SaleController extends Controller
                 'user_id' => $request->user()?->id,
             ]);
 
-            foreach ($data['items'] as $item) {
-                $product = Product::lockForUpdate()->findOrFail($item['product_id']);
+            foreach ($resolvedItems as $entry) {
+                $product = $entry['product'];
+                $line = $entry['line'];
 
-                if ($product->stock < $item['quantity']) {
-                    abort(422, "Stock insuffisant pour {$product->name}");
-                }
-
-                $sale->items()->create($item);
-                $product->decrement('stock', $item['quantity']);
+                $sale->items()->create([
+                    'product_id' => $product->id,
+                    'quantity' => $line['quantity'],
+                    'unit_price' => $line['unit_price'],
+                    'line_total' => $line['line_total'],
+                ]);
+                $product->decrement('stock', $line['quantity']);
 
                 StockMovement::create([
                     'product_id' => $product->id,
                     'type' => 'sortie',
-                    'quantity' => $item['quantity'],
+                    'quantity' => $line['quantity'],
                     'unit_cost' => 0,
                     'reference' => $saleNumber,
                     'note' => "Vente {$data['type']}",
@@ -108,10 +129,22 @@ class SaleController extends Controller
         });
     }
 
-    public function destroy(Sale $sale)
+    public function destroy(Request $request, Sale $sale)
     {
+        $this->ensureSaleAccess($request, $sale);
         $sale->delete();
 
         return response()->json(['message' => 'Vente supprimée']);
+    }
+
+    private function ensureSaleAccess(Request $request, Sale $sale): void
+    {
+        if (Permissions::can($request->user()->role, Permissions::REPORTS_SALES)) {
+            return;
+        }
+
+        if ($sale->user_id !== $request->user()->id) {
+            abort(403, 'Accès refusé pour cette vente.');
+        }
     }
 }

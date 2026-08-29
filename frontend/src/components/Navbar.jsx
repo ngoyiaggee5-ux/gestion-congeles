@@ -17,7 +17,7 @@ const quickLinks = [
   { to: "/clients", label: "Clients", permission: PERMISSIONS.clientsManage },
 ];
 
-export default function Navbar({ onMenuOpen }) {
+export default function Navbar({ onMenuOpen, onToggleCollapse, sidebarCollapsed }) {
   const { currentUser, data, logout, can } = useApp();
   const navigate = useNavigate();
   const cartCount = data.cart.reduce((n, i) => n + i.quantity, 0);
@@ -41,6 +41,15 @@ export default function Navbar({ onMenuOpen }) {
             icon="bi-list"
             aria-label="Menu"
           />
+          <VfButton
+            variant="ghost"
+            size="sm"
+            className="desktop-sidebar-toggle navbar-menu-btn"
+            onClick={onToggleCollapse}
+            icon={sidebarCollapsed ? "bi-layout-sidebar-inset" : "bi-layout-sidebar"}
+            aria-label={sidebarCollapsed ? "Ouvrir le menu" : "Réduire le menu"}
+            title={sidebarCollapsed ? "Ouvrir le menu" : "Réduire le menu"}
+          />
           <Link to="/" className="navbar-brand-link">
             <Logo size={38} />
             <div className="navbar-brand-text">
@@ -62,7 +71,7 @@ export default function Navbar({ onMenuOpen }) {
                 `navbar-modern-link${isActive ? " active" : ""}`
               }
             >
-              {item.label}
+              <span className="navbar-modern-link-label">{item.label}</span>
             </NavLink>
           ))}
         </nav>

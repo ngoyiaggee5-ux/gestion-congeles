@@ -8,8 +8,20 @@ import { normalizeSettings } from "./settings";
 import { normalizeRole } from "./permissions";
 
 export function mapAppState(payload, cart = []) {
-  const categories = payload.categories || [];
-  const products = payload.products || [];
+  const categories = (payload.categories || []).map((category) => ({
+    ...category,
+    id: Number(category.id),
+  }));
+  const products = (payload.products || []).map((product) => ({
+    ...product,
+    id: Number(product.id),
+    category_id:
+      product.category_id != null ? Number(product.category_id) : null,
+    stock: Number(product.stock) || 0,
+    min_stock: Number(product.min_stock) || 0,
+    price_retail: Number(product.price_retail) || 0,
+    price_wholesale: Number(product.price_wholesale) || 0,
+  }));
   const stockMovements = payload.stockMovements || [];
   const clients = payload.clients || [];
   const users = (payload.users || []).map((user) => ({
@@ -18,7 +30,14 @@ export function mapAppState(payload, cart = []) {
   }));
   const sales = (payload.sales || []).map((sale) => ({
     ...sale,
-    items: sale.items || [],
+    items: (sale.items || []).map((item) => ({
+      ...item,
+      product_id: Number(item.product_id),
+      quantity: Number(item.quantity) || 0,
+      unit_price: Number(item.unit_price) || 0,
+      line_total:
+        item.line_total != null ? Number(item.line_total) : null,
+    })),
   }));
   const invoices = payload.invoices || [];
 

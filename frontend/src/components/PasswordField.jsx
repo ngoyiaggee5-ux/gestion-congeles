@@ -8,10 +8,25 @@ export default function PasswordField({
   autoComplete = "current-password",
   required = false,
   id = "password",
+  name,
   label = "Mot de passe",
   hint,
+  dataLpignore = false,
+  data1pIgnore = false,
+  antiAutofill = false,
 }) {
   const [showPassword, setShowPassword] = useState(false);
+  const [focused, setFocused] = useState(false);
+
+  const handleFocus = (event) => {
+    if (antiAutofill && !focused) {
+      setFocused(true);
+      event.target.removeAttribute("readonly");
+    }
+  };
+
+  const useMaskedText = antiAutofill && !showPassword;
+  const inputType = antiAutofill || showPassword ? "text" : "password";
 
   return (
     <Form.Group>
@@ -19,12 +34,20 @@ export default function PasswordField({
       <InputGroup className="password-input-group">
         <Form.Control
           id={id}
-          type={showPassword ? "text" : "password"}
+          name={name}
+          type={inputType}
+          className={useMaskedText ? "password-masked" : undefined}
           placeholder={placeholder}
           value={value}
           onChange={onChange}
+          onFocus={handleFocus}
           required={required}
-          autoComplete={autoComplete}
+          readOnly={antiAutofill && !focused}
+          autoComplete={antiAutofill ? "off" : autoComplete}
+          spellCheck={false}
+          {...(dataLpignore || antiAutofill ? { "data-lpignore": "true" } : {})}
+          {...(data1pIgnore || antiAutofill ? { "data-1p-ignore": true } : {})}
+          {...(antiAutofill ? { "data-bwignore": "true", "data-form-type": "other" } : {})}
         />
         <button
           type="button"

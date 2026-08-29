@@ -15,6 +15,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
 
   if (isAuthenticated) {
     return <Navigate to={getDefaultHomeForRole(currentUser?.role)} replace />;
@@ -28,6 +29,8 @@ export default function Login() {
     const result = await login(email.trim(), password);
     setLoading(false);
     if (result.ok) {
+      setEmail("");
+      setPassword("");
       if (result.warning) setWarning(result.warning);
       navigate(getDefaultHomeForRole(result.user?.role), { replace: true });
     } else {
@@ -37,42 +40,97 @@ export default function Login() {
 
   return (
     <div className="login-page">
-      <div className="login-card">
-        <div className="login-brand">
-          <Logo size={88} className="login-logo" />
+      <div className="login-shell">
+        <aside className="login-brand-panel">
+          <Logo size={96} className="login-logo" />
+          <p className="login-kicker">Congélateur commercial</p>
           <h1>MBALA KWA SELEMANI</h1>
-          <p>Gestion de congelé — Connexion sécurisée</p>
-        </div>
+          <p className="login-tagline">
+            Caisse, stock froid et factures — une seule application pour votre
+            quotidien.
+          </p>
+          <ul className="login-highlights">
+            <li>
+              <i className="bi bi-snow" /> Stock froid suivi en direct
+            </li>
+            <li>
+              <i className="bi bi-lightning-charge" /> Encaissement détail & gros
+            </li>
+            <li>
+              <i className="bi bi-shield-check" /> Connexion sécurisée
+            </li>
+          </ul>
+        </aside>
 
-        {error && <Alert variant="danger">{error}</Alert>}
-        {warning && <Alert variant="warning">{warning}</Alert>}
-
-        <Form onSubmit={submit}>
-          <Form.Group className="mb-3">
-            <Form.Label>Adresse e-mail</Form.Label>
-            <Form.Control
-              type="email"
-              placeholder="votre@email.ci"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="username"
-            />
-          </Form.Group>
-          <div className="mb-4">
-            <PasswordField
-              id="login-password"
-              label="Mot de passe"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-            />
+        <div className="login-card">
+          <div className="login-brand login-brand-mobile">
+            <Logo size={72} className="login-logo" />
+            <h1>MBALA KWA SELEMANI</h1>
+            <p>Connexion sécurisée</p>
           </div>
-          <VfButton type="submit" className="w-100" disabled={loading} icon="bi-shield-lock">
-            {loading ? "Connexion…" : "Se connecter"}
-          </VfButton>
-        </Form>
+
+          <h2 className="login-form-title">Se connecter</h2>
+          <p className="login-form-sub">Accédez à votre espace de travail.</p>
+
+          {error && <Alert variant="danger">{error}</Alert>}
+          {warning && <Alert variant="warning">{warning}</Alert>}
+
+          <Form
+            onSubmit={submit}
+            autoComplete="off"
+            data-lpignore="true"
+            data-1p-ignore
+            data-bwignore="true"
+          >
+            <div className="login-autofill-trap" aria-hidden="true">
+              <input type="text" name="username" autoComplete="username" tabIndex={-1} defaultValue="" readOnly />
+              <input type="password" name="password" autoComplete="current-password" tabIndex={-1} defaultValue="" readOnly />
+            </div>
+
+            <Form.Group className="mb-3">
+              <Form.Label htmlFor="mbala-user-identity">Adresse e-mail</Form.Label>
+              <Form.Control
+                id="mbala-user-identity"
+                type="text"
+                inputMode="email"
+                name="mbala_user_identity"
+                placeholder="votre@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onFocus={(e) => {
+                  if (!emailFocused) {
+                    setEmailFocused(true);
+                    e.target.removeAttribute("readonly");
+                  }
+                }}
+                required
+                pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
+                title="Adresse e-mail invalide"
+                readOnly={!emailFocused}
+                autoComplete="off"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore
+                data-bwignore="true"
+                data-form-type="other"
+              />
+            </Form.Group>
+            <div className="mb-4">
+              <PasswordField
+                id="mbala-secret-code"
+                name="mbala_secret_code"
+                label="Mot de passe"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                antiAutofill
+                required
+              />
+            </div>
+            <VfButton type="submit" className="w-100" disabled={loading} icon="bi-shield-lock">
+              {loading ? "Connexion…" : "Entrer"}
+            </VfButton>
+          </Form>
+        </div>
       </div>
     </div>
   );

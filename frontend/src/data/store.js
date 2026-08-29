@@ -1,4 +1,5 @@
 import { formatMoney as formatMoneyWithSettings } from "../utils/settings";
+import { sameId } from "../utils/ids";
 import {
   hashPassword,
   hashPasswordSync,
@@ -371,13 +372,60 @@ export function saveAuthSessionLegacy(userId) {
 export async function authenticateUser(email, password) {
   const data = migrateUsers(getData());
   const normalizedEmail = normalizeEmail(email);
+  const lockKey = `mbala-login-lock:${normalizedEmail}`;
+  const MAX_ATTEMPTS = 5;
+  const LOCKOUT_MS = 15 * 60 * 1000;
+
+  try {
+    const raw = sessionStorage.getItem(lockKey);
+    if (raw) {
+      const state = JSON.parse(raw);
+      if (state.lockedUntil && Date.now() < state.lockedUntil) {
+        const minutes = Math.max(
+          1,
+          Math.ceil((state.lockedUntil - Date.now()) / 60000)
+        );
+        return {
+          ok: false,
+          message: `Trop de tentatives. Réessayez dans ${minutes} min.`,
+        };
+      }
+    }
+  } catch {
+    /* ignore */
+  }
 
   const user = data.users.find(
     (u) => normalizeEmail(u.email) === normalizedEmail
   );
 
+  const registerFailure = () => {
+    let attempts = 1;
+    let lockedUntil = null;
+    try {
+      const prev = JSON.parse(sessionStorage.getItem(lockKey) || "{}");
+      attempts = (prev.attempts || 0) + 1;
+      if (attempts >= MAX_ATTEMPTS) {
+        lockedUntil = Date.now() + LOCKOUT_MS;
+      }
+      sessionStorage.setItem(
+        lockKey,
+        JSON.stringify({ attempts, lockedUntil })
+      );
+    } catch {
+      /* ignore */
+    }
+    const remaining = MAX_ATTEMPTS - attempts;
+    if (lockedUntil) {
+      return "Trop de tentatives. Compte temporairement bloqué — réessayez dans 15 min.";
+    }
+    return remaining > 0
+      ? `Identifiants incorrects. ${remaining} tentative(s) restante(s).`
+      : "Identifiants incorrects.";
+  };
+
   if (!user) {
-    return { ok: false, message: "Identifiants incorrects." };
+    return { ok: false, message: registerFailure() };
   }
   if (!user.active) {
     return { ok: false, message: "Ce compte est désactivé." };
@@ -385,7 +433,13 @@ export async function authenticateUser(email, password) {
 
   const valid = await verifyPassword(password, user.password);
   if (!valid) {
-    return { ok: false, message: "Identifiants incorrects." };
+    return { ok: false, message: registerFailure() };
+  }
+
+  try {
+    sessionStorage.removeItem(lockKey);
+  } catch {
+    /* ignore */
   }
 
   if (!isPasswordHashed(user.password)) {
@@ -415,15 +469,17 @@ export function formatDate(value) {
 }
 
 export function getCategoryName(data, categoryId) {
-  return data.categories.find((c) => c.id === categoryId)?.name || "—";
+  return (
+    data.categories.find((c) => sameId(c.id, categoryId))?.name || "—"
+  );
 }
 
 export function getProduct(data, productId) {
-  return data.products.find((p) => p.id === productId);
+  return data.products.find((p) => sameId(p.id, productId));
 }
 
 export function getClient(data, clientId) {
-  return data.clients.find((c) => c.id === clientId);
+  return data.clients.find((c) => sameId(c.id, clientId));
 }
 
 export function stockStatus(product) {

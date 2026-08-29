@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Table, Button, Form, Row, Col } from "react-bootstrap";
 import PageHeader from "../../components/PageHeader";
+import { useConfirmDialog } from "../../components/ConfirmDialog";
 import { useApp } from "../../data/AppContext";
 import { PERMISSIONS } from "../../utils/permissions";
 import { apiErrorMessage } from "../../utils/apiSync";
 
 export default function Categories() {
   const { data, addCategory, updateCategory, deleteCategory, can } = useApp();
+  const { askConfirm, ConfirmDialog } = useConfirmDialog();
   const canDeleteCategory = can(PERMISSIONS.categoriesDelete);
   const [form, setForm] = useState({ name: "", description: "" });
   const [editId, setEditId] = useState(null);
@@ -122,10 +124,14 @@ export default function Categories() {
                         <Button
                           size="sm"
                           variant="outline-danger"
-                          onClick={() => {
-                            if (confirm("Supprimer cette catégorie ?"))
-                              deleteCategory(c.id);
-                          }}
+                          onClick={() =>
+                            askConfirm({
+                              title: "Supprimer la catégorie",
+                              message: `Voulez-vous supprimer « ${c.name || c.NAME} » ?`,
+                              confirmLabel: "Oui, supprimer",
+                              onConfirm: () => deleteCategory(c.id),
+                            })
+                          }
                         >
                           Suppr.
                         </Button>
@@ -138,6 +144,7 @@ export default function Categories() {
           </div>
         </Col>
       </Row>
+      <ConfirmDialog />
     </>
   );
 }

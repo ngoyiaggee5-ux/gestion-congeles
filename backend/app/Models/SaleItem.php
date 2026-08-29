@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SaleItem extends Model
 {
-    protected $fillable = ['sale_id', 'product_id', 'quantity', 'unit_price'];
+    protected $fillable = ['sale_id', 'product_id', 'quantity', 'unit_price', 'line_total'];
+
+    protected $casts = [
+        'quantity' => 'float',
+        'line_total' => 'integer',
+    ];
 
     public function sale(): BelongsTo
     {

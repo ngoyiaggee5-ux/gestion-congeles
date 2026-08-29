@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Spinner } from "react-bootstrap";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import Logo from "../../components/Logo";
 import { formatCdf } from "../../utils/settings";
 import { verifyInvoice } from "../../utils/invoiceVerify";
@@ -139,9 +139,6 @@ export default function VerifierFacture() {
           </div>
         )}
 
-        <div className="verify-invoice-footer">
-          <Link to="/login">Accès application</Link>
-        </div>
       </div>
     </div>
   );

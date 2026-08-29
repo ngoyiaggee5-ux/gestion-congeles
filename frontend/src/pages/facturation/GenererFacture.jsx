@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alert, Button, Form, Table } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import PageHeader from "../../components/PageHeader";
+import { useConfirmDialog } from "../../components/ConfirmDialog";
 import { useApp } from "../../data/AppContext";
 import { PERMISSIONS } from "../../utils/permissions";
 
@@ -15,6 +16,7 @@ export default function GenererFacture() {
     deleteSale,
     can,
   } = useApp();
+  const { askConfirm, ConfirmDialog } = useConfirmDialog();
   const canDeleteSale = can(PERMISSIONS.salesDelete);
   const [saleId, setSaleId] = useState("");
   const [msg, setMsg] = useState("");
@@ -100,11 +102,14 @@ export default function GenererFacture() {
                       <Button
                         size="sm"
                         variant="outline-danger"
-                        onClick={() => {
-                          if (confirm(`Supprimer la vente ${s.number} ?`)) {
-                            deleteSale(s.id);
-                          }
-                        }}
+                        onClick={() =>
+                          askConfirm({
+                            title: "Supprimer la vente",
+                            message: `Voulez-vous supprimer la vente ${s.number} ?`,
+                            confirmLabel: "Oui, supprimer",
+                            onConfirm: () => deleteSale(s.id),
+                          })
+                        }
                       >
                         Supprimer
                       </Button>
@@ -116,6 +121,7 @@ export default function GenererFacture() {
           </tbody>
         </Table>
       </div>
+      <ConfirmDialog />
     </>
   );
 }
