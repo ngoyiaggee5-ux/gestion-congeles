@@ -1,11 +1,42 @@
 export const defaultSettings = {
   font: "dm-sans",
   theme: "light",
+  palette: "forest",
   currency: "CDF",
   usdRate: 2800,
 };
 
 export const FONT_OPTIONS = ["dm-sans", "outfit", "system", "serif"];
+
+export const PALETTE_OPTIONS = ["forest", "ocean", "sunset", "slate", "berry"];
+
+export const PALETTE_META = {
+  forest: {
+    label: "Forêt",
+    description: "Vert froid — identité MBALA KWA",
+    swatches: ["#0b6e4f", "#1a9bb8", "#e8f7f1"],
+  },
+  ocean: {
+    label: "Océan",
+    description: "Bleu profond et turquoise",
+    swatches: ["#0e7490", "#0284c7", "#e0f2fe"],
+  },
+  sunset: {
+    label: "Soleil",
+    description: "Ambre chaud et corail",
+    swatches: ["#c2410c", "#ea580c", "#fff7ed"],
+  },
+  slate: {
+    label: "Ardoise",
+    description: "Gris bleuté professionnel",
+    swatches: ["#334155", "#475569", "#f1f5f9"],
+  },
+  berry: {
+    label: "Baie",
+    description: "Prune et rose fumé",
+    swatches: ["#6d28d9", "#a21caf", "#faf5ff"],
+  },
+};
 
 export const FONT_STACKS = {
   "dm-sans": {
@@ -35,9 +66,13 @@ export function normalizeSettings(settings = defaultSettings) {
   const font = FONT_OPTIONS.includes(merged.font)
     ? merged.font
     : defaultSettings.font;
+  const palette = PALETTE_OPTIONS.includes(merged.palette)
+    ? merged.palette
+    : defaultSettings.palette;
   return {
     ...merged,
     font,
+    palette,
     theme: merged.theme === "dark" ? "dark" : "light",
     currency: String(merged.currency || "CDF").toUpperCase(),
     usdRate: Number(merged.usdRate) || 2800,
@@ -100,11 +135,12 @@ export function formatMoneyEquivalent(value, settings = defaultSettings) {
 
 export function applyAppearance(settings = defaultSettings) {
   const normalized = normalizeSettings(settings);
-  const { theme, font } = normalized;
+  const { theme, font, palette } = normalized;
   const stacks = getFontStacks(font);
   const root = document.documentElement;
 
   root.setAttribute("data-theme", theme);
+  root.setAttribute("data-palette", palette);
   root.setAttribute("data-font", font);
   root.style.setProperty("--font-body", stacks.body);
   root.style.setProperty("--font-display", stacks.display);

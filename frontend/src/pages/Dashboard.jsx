@@ -11,7 +11,6 @@ import {
   Bar,
 } from "recharts";
 import { Link } from "react-router-dom";
-import PageHeader from "../components/PageHeader";
 import SmartInsights from "../components/SmartInsights";
 import { useApp } from "../data/AppContext";
 import { getChartTheme } from "../utils/chartTheme";
@@ -21,7 +20,8 @@ import { sumStockByCategory } from "../utils/ids";
 import { localDateKey, isSameLocalDay, isoToLocalDateKey } from "../utils/localDate";
 
 export default function Dashboard() {
-  const { data, formatMoney, stockStatus, getCategoryName, can, formatDate } = useApp();
+  const { data, formatMoney, stockStatus, getCategoryName, can, formatDate, currentUser } =
+    useApp();
   const settings = normalizeSettings(data.settings);
   const chart = getChartTheme(settings.theme === "dark");
   const totalStock = data.products.reduce((s, p) => s + p.stock, 0);
@@ -86,61 +86,92 @@ export default function Dashboard() {
     },
   ].filter(Boolean);
 
+  const firstName = currentUser?.name?.split(/\s+/)[0] || "équipe";
+
+  const formatStockQty = (value) => {
+    const num = Number(value) || 0;
+    if (Math.abs(num - Math.round(num)) < 0.001) {
+      return Math.round(num).toLocaleString("fr-FR");
+    }
+    return num.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+  };
+
   return (
     <>
-      <PageHeader
-        title="Tableau de bord"
-        subtitle="L’essentiel du jour — caisse, stock et alertes."
-        badge="Aujourd’hui"
-      />
+      <header className="dashboard-welcome">
+        <p className="dashboard-welcome-kicker">
+          Bon retour, {firstName} <span aria-hidden="true">👋</span>
+        </p>
+        <h1 className="dashboard-welcome-title">Tableau de bord</h1>
+        <p className="dashboard-welcome-sub">
+          L&apos;essentiel du jour — caisse, stock et alertes.
+        </p>
+      </header>
 
       <SmartInsights />
 
+      <div className="dashboard-kpi-grid">
+        <section className="bento-tile bento-stat bento-kpi">
+          <div className="bento-kpi-icon bento-kpi-icon-teal" aria-hidden="true">
+            <i className="bi bi-graph-up-arrow" />
+          </div>
+          <div className="bento-kpi-body">
+            <div className="stat-label">Ventes du jour</div>
+            <div className="stat-value">{formatMoney(todayTotalCdf)}</div>
+            <div className="stat-hint">
+              {todaySales.length} ticket{todaySales.length !== 1 ? "s" : ""}
+              {salesTrend !== null && (
+                <span className={`stat-trend ${salesTrend >= 0 ? "up" : "down"}`}>
+                  {" "}
+                  · {salesTrend >= 0 ? "+" : ""}
+                  {salesTrend}% vs hier
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="bento-tile bento-stat bento-kpi">
+          <div className="bento-kpi-icon bento-kpi-icon-purple" aria-hidden="true">
+            <i className="bi bi-cash-stack" />
+          </div>
+          <div className="bento-kpi-body">
+            <div className="stat-label">CA cumulé</div>
+            <div className="stat-value">{formatMoney(salesTotalCdf)}</div>
+            <div className="stat-hint">
+              {settings.currency === "USD"
+                ? `${salesTotalCdf.toLocaleString("fr-FR")} FC`
+                : formatCdfAsUsd(salesTotalCdf, settings)}
+            </div>
+          </div>
+        </section>
+
+        <section className="bento-tile bento-stat bento-stat-amber bento-kpi">
+          <div className="bento-kpi-icon bento-kpi-icon-amber" aria-hidden="true">
+            <i className="bi bi-exclamation-triangle" />
+          </div>
+          <div className="bento-kpi-body">
+            <div className="stat-label">Alertes stock</div>
+            <div className="stat-value">{lowStock.length}</div>
+            <div className="stat-hint">
+              {lowStock.length === 0 ? "Tout va bien" : "À réapprovisionner"}
+            </div>
+          </div>
+        </section>
+
+        <section className="bento-tile bento-stat bento-kpi">
+          <div className="bento-kpi-icon bento-kpi-icon-teal" aria-hidden="true">
+            <i className="bi bi-boxes" />
+          </div>
+          <div className="bento-kpi-body">
+            <div className="stat-label">Stock (unités)</div>
+            <div className="stat-value">{formatStockQty(totalStock)}</div>
+            <div className="stat-hint">{data.products.length} références</div>
+          </div>
+        </section>
+      </div>
+
       <div className="bento-dashboard">
-        <section className="bento-tile bento-hero liquid-glass">
-          <div className="bento-hero-label">Ventes du jour</div>
-          <div className="bento-hero-value">{formatMoney(todayTotalCdf)}</div>
-          <div className="bento-hero-meta">
-            {todaySales.length} ticket{todaySales.length !== 1 ? "s" : ""}
-            {salesTrend !== null && (
-              <span className={`stat-trend ${salesTrend >= 0 ? "up" : "down"}`}>
-                {" "}
-                · {salesTrend >= 0 ? "+" : ""}
-                {salesTrend}% vs hier
-              </span>
-            )}
-          </div>
-          {can(PERMISSIONS.salesDetail) && (
-            <Link to="/ventes/detail" className="bento-hero-cta">
-              Ouvrir la caisse <i className="bi bi-arrow-right" />
-            </Link>
-          )}
-        </section>
-
-        <section className="bento-tile bento-stat">
-          <div className="stat-label">Stock (unités)</div>
-          <div className="stat-value">{totalStock}</div>
-          <div className="stat-hint">{data.products.length} références</div>
-        </section>
-
-        <section className="bento-tile bento-stat bento-stat-amber">
-          <div className="stat-label">Alertes stock</div>
-          <div className="stat-value">{lowStock.length}</div>
-          <div className="stat-hint">
-            {lowStock.length === 0 ? "Tout va bien" : "À réapprovisionner"}
-          </div>
-        </section>
-
-        <section className="bento-tile bento-stat">
-          <div className="stat-label">CA cumulé</div>
-          <div className="stat-value stat-value-sm">{formatMoney(salesTotalCdf)}</div>
-          <div className="stat-hint">
-            {settings.currency === "USD"
-              ? `${salesTotalCdf.toLocaleString("fr-FR")} FC`
-              : formatCdfAsUsd(salesTotalCdf, settings)}
-          </div>
-        </section>
-
         {quickActions.length > 0 && (
           <section className="bento-tile bento-actions">
             <h3 className="panel-title">Accès rapide</h3>
@@ -331,6 +362,20 @@ export default function Dashboard() {
                 ))}
               </ul>
             )}
+          </section>
+        )}
+
+        {lowStock.length > 0 && can(PERMISSIONS.stockManage) && (
+          <section className="bento-tile bento-cta-banner">
+            <div className="bento-cta-text">
+              <p className="bento-cta-kicker">N&apos;oubliez pas</p>
+              <h3 className="bento-cta-title">
+                {lowStock.length} produit{lowStock.length > 1 ? "s" : ""} sous le seuil
+              </h3>
+            </div>
+            <Link to="/stock/entrees" className="bento-cta-btn">
+              Entrées de stock <i className="bi bi-arrow-right" />
+            </Link>
           </section>
         )}
       </div>

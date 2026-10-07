@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Support\DataSync;
 use Illuminate\Http\Request;
 
 class CategoryController extends Controller
@@ -20,7 +21,10 @@ class CategoryController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        return response()->json(Category::create($data), 201);
+        $category = Category::create($data);
+        DataSync::bump();
+
+        return response()->json($category, 201);
     }
 
     public function show(Category $category)
@@ -36,6 +40,7 @@ class CategoryController extends Controller
         ]);
 
         $category->update($data);
+        DataSync::bump();
 
         return response()->json($category);
     }
@@ -43,6 +48,7 @@ class CategoryController extends Controller
     public function destroy(Category $category)
     {
         $category->delete();
+        DataSync::bump();
 
         return response()->json(['message' => 'Catégorie supprimée']);
     }

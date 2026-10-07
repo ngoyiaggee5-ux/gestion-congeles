@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\DataSync;
 use App\Support\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -47,6 +48,8 @@ class UserController extends Controller
             'active' => true,
         ]);
 
+        DataSync::bump();
+
         return response()->json($this->formatUser($user), 201);
     }
 
@@ -72,6 +75,7 @@ class UserController extends Controller
         }
 
         $user->update($data);
+        DataSync::bump();
 
         return response()->json($this->formatUser($user->fresh()));
     }
@@ -83,6 +87,7 @@ class UserController extends Controller
         }
 
         $user->delete();
+        DataSync::bump();
 
         return response()->json(['message' => 'Utilisateur supprimé']);
     }

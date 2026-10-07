@@ -18,15 +18,28 @@ import { filterByPeriod } from "../../utils/reportPeriod";
 import { sumStockByCategory } from "../../utils/ids";
 import { useReportPeriod } from "../../hooks/useReportPeriod";
 
-const COLORS_LIGHT = ["#0b6e4f", "#1a9bb8", "#d97706", "#64748b"];
-const COLORS_DARK = ["#34d399", "#67e8f9", "#fbbf24", "#94a3b8"];
+function paletteColors(dark) {
+  if (typeof window === "undefined") {
+    return dark
+      ? ["#34d399", "#67e8f9", "#fbbf24", "#94a3b8"]
+      : ["#0b6e4f", "#1a9bb8", "#d97706", "#64748b"];
+  }
+  const styles = getComputedStyle(document.documentElement);
+  const pick = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
+  return [
+    pick("--vf-green", dark ? "#34d399" : "#0b6e4f"),
+    pick("--vf-ice", dark ? "#67e8f9" : "#1a9bb8"),
+    pick("--vf-amber", "#d97706"),
+    pick("--vf-muted", dark ? "#94a3b8" : "#64748b"),
+  ];
+}
 
 export default function RapportStock() {
   const { data, getCategoryName, formatMoney, stockStatus, getProduct, formatDate } =
     useApp();
   const dark = data.settings?.theme === "dark";
   const chart = getChartTheme(dark);
-  const COLORS = dark ? COLORS_DARK : COLORS_LIGHT;
+  const COLORS = paletteColors(dark);
   const periodState = useReportPeriod();
 
   const filteredMovements = filterByPeriod(
@@ -44,10 +57,13 @@ export default function RapportStock() {
 
   const pieTotal = pie.reduce((sum, entry) => sum + entry.value, 0);
 
-  const valeur = data.products.reduce(
-    (s, p) => s + p.stock * p.price_wholesale,
-    0
-  );
+  const valeur = data.products.reduce((s, p) => {
+    const unit =
+      Number(p.cost_price) > 0
+        ? Number(p.cost_price)
+        : Number(p.price_wholesale) || 0;
+    return s + (Number(p.stock) || 0) * unit;
+  }, 0);
 
   const entrees = filteredMovements
     .filter((m) => m.type === "entrée")
@@ -87,12 +103,12 @@ export default function RapportStock() {
         <ReportPrintHeader
           title="Rapport de stock"
           periodLabel={periodState.periodLabel}
-          subtitle={`Valeur actuelle (coût gros) : ${formatMoney(valeur)}`}
+          subtitle={`Valeur actuelle (coût d'achat) : ${formatMoney(valeur)}`}
         />
 
         <div className="stat-grid mb-4 report-print-stats">
           <div className="stat-card stat-card-green">
-            <div className="stat-label">Valeur stock actuel</div>
+            <div className="stat-label">Valeur stock (coût)</div>
             <div className="stat-value stat-value-sm">{formatMoney(valeur)}</div>
           </div>
           <div className="stat-card stat-card-ice">

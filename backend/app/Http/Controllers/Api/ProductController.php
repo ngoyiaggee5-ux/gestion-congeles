@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Support\ActivityLogger;
+use App\Support\DataSync;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -32,12 +33,16 @@ class ProductController extends Controller
             'unit' => 'nullable|string|max:50',
             'price_retail' => 'required|integer|min:0',
             'price_wholesale' => 'required|integer|min:0',
+            'cost_price' => 'nullable|integer|min:0',
             'stock' => 'nullable|integer|min:0',
             'min_stock' => 'nullable|integer|min:0',
             'description' => 'nullable|string',
         ]);
 
+        $data['cost_price'] = (int) ($data['cost_price'] ?? 0);
+
         $product = Product::create($data);
+        DataSync::bump();
 
         return response()->json($product->load('category'), 201);
     }
@@ -56,6 +61,7 @@ class ProductController extends Controller
             'unit' => 'nullable|string|max:50',
             'price_retail' => 'sometimes|integer|min:0',
             'price_wholesale' => 'sometimes|integer|min:0',
+            'cost_price' => 'sometimes|integer|min:0',
             'stock' => 'sometimes|integer|min:0',
             'min_stock' => 'sometimes|integer|min:0',
             'description' => 'nullable|string',
@@ -63,10 +69,15 @@ class ProductController extends Controller
 
         $product->update($data);
 
-        $priceChanges = array_intersect_key($data, array_flip(['price_retail', 'price_wholesale']));
+        $priceChanges = array_intersect_key(
+            $data,
+            array_flip(['price_retail', 'price_wholesale', 'cost_price'])
+        );
         if ($priceChanges) {
             ActivityLogger::logPriceUpdate($request, $product, $priceChanges);
         }
+
+        DataSync::bump();
 
         return response()->json($product->load('category'));
     }
@@ -74,6 +85,7 @@ class ProductController extends Controller
     public function destroy(Product $product)
     {
         $product->delete();
+        DataSync::bump();
 
         return response()->json(['message' => 'Produit supprimé']);
     }

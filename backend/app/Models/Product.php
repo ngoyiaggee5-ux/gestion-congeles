@@ -9,7 +9,8 @@ class Product extends Model
 {
     protected $fillable = [
         'category_id', 'name', 'sku', 'unit',
-        'price_retail', 'price_wholesale', 'stock', 'min_stock', 'description',
+        'price_retail', 'price_wholesale', 'cost_price',
+        'stock', 'min_stock', 'description',
     ];
 
     public function category(): BelongsTo

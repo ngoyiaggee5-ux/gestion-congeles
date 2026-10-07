@@ -42,9 +42,19 @@ export default function Entrees() {
                 <Form.Label>Produit</Form.Label>
                 <Form.Select
                   value={form.product_id}
-                  onChange={(e) =>
-                    setForm({ ...form, product_id: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const productId = e.target.value;
+                    const product = data.products.find(
+                      (p) => String(p.id) === String(productId)
+                    );
+                    setForm({
+                      ...form,
+                      product_id: productId,
+                      unit_cost:
+                        form.unit_cost ||
+                        (product?.cost_price ? String(product.cost_price) : ""),
+                    });
+                  }}
                   required
                 >
                   <option value="">Choisir…</option>
@@ -72,14 +82,19 @@ export default function Entrees() {
             </Col>
             <Col md={4}>
               <Form.Group>
-                <Form.Label>Coût unitaire</Form.Label>
+                <Form.Label>Coût unitaire (CDF)</Form.Label>
                 <Form.Control
                   type="number"
+                  min="0"
                   value={form.unit_cost}
                   onChange={(e) =>
                     setForm({ ...form, unit_cost: e.target.value })
                   }
+                  placeholder="Prix payé au fournisseur"
                 />
+                <Form.Text className="text-muted">
+                  Met à jour le coût moyen du produit.
+                </Form.Text>
               </Form.Group>
             </Col>
             <Col md={8}>

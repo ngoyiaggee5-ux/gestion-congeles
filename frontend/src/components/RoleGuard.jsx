@@ -12,7 +12,7 @@ export default function RoleGuard() {
   }
 
   if (!canAccessRoute(currentUser, pathname)) {
-    if (pathname === "/" && currentUser?.role) {
+    if (pathname === "/dashboard" && currentUser?.role) {
       return <Navigate to={getDefaultHomeForRole(currentUser.role)} replace />;
     }
     return <AccessDenied />;

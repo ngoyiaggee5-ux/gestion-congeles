@@ -8,7 +8,7 @@ import { getData } from "./data/store.js";
 import { applyAppearance } from "./utils/settings.js";
 import { mergeAppearance } from "./utils/appearanceStorage.js";
 
-applyAppearance(mergeAppearance(getData().settings));
+applyAppearance(mergeAppearance(getData().settings, { preferLocal: false }));
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

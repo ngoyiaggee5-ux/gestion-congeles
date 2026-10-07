@@ -12,6 +12,11 @@ return new class extends Migration
             return;
         }
 
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            // SQLite : colonnes déjà compatibles pour le dev local.
+            return;
+        }
+
         DB::statement('ALTER TABLE products MODIFY stock DECIMAL(10,3) UNSIGNED NOT NULL DEFAULT 0');
         DB::statement('ALTER TABLE products MODIFY min_stock DECIMAL(10,3) UNSIGNED NOT NULL DEFAULT 0');
 
@@ -27,6 +32,10 @@ return new class extends Migration
     public function down(): void
     {
         if (! Schema::hasTable('products')) {
+            return;
+        }
+
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
             return;
         }
 

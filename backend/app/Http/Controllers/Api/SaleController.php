@@ -8,8 +8,11 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\StockMovement;
 use App\Support\ActivityLogger;
+use App\Support\DataSync;
+use App\Support\DocumentNumbers;
 use App\Support\InvoiceVerification;
 use App\Support\Permissions;
+use App\Support\ProductCost;
 use App\Support\SalePricing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -63,12 +66,7 @@ class SaleController extends Controller
                 $total += $line['line_total'];
             }
 
-            $saleNumber = 'VT-'.now()->format('Y').'-'.str_pad(
-                Sale::count() + 1,
-                4,
-                '0',
-                STR_PAD_LEFT
-            );
+            $saleNumber = DocumentNumbers::nextSaleNumber();
 
             $sale = Sale::create([
                 'number' => $saleNumber,
@@ -84,11 +82,13 @@ class SaleController extends Controller
             foreach ($resolvedItems as $entry) {
                 $product = $entry['product'];
                 $line = $entry['line'];
+                $unitCost = ProductCost::resolveUnitCost($product);
 
                 $sale->items()->create([
                     'product_id' => $product->id,
                     'quantity' => $line['quantity'],
                     'unit_price' => $line['unit_price'],
+                    'unit_cost' => $unitCost,
                     'line_total' => $line['line_total'],
                 ]);
                 $product->decrement('stock', $line['quantity']);
@@ -97,18 +97,13 @@ class SaleController extends Controller
                     'product_id' => $product->id,
                     'type' => 'sortie',
                     'quantity' => $line['quantity'],
-                    'unit_cost' => 0,
+                    'unit_cost' => $unitCost,
                     'reference' => $saleNumber,
                     'note' => "Vente {$data['type']}",
                 ]);
             }
 
-            $invoiceNumber = 'FA-'.now()->format('Y').'-'.str_pad(
-                Invoice::count() + 1,
-                4,
-                '0',
-                STR_PAD_LEFT
-            );
+            $invoiceNumber = DocumentNumbers::nextInvoiceNumber();
 
             $invoice = Invoice::create([
                 'number' => $invoiceNumber,
@@ -121,6 +116,7 @@ class SaleController extends Controller
             ]);
 
             ActivityLogger::logSale($request, $sale);
+            DataSync::bump();
 
             return response()->json(
                 $sale->load(['items.product', 'client', 'invoice']),
@@ -133,6 +129,7 @@ class SaleController extends Controller
     {
         $this->ensureSaleAccess($request, $sale);
         $sale->delete();
+        DataSync::bump();
 
         return response()->json(['message' => 'Vente supprimée']);
     }

@@ -9,7 +9,7 @@ export default function Prix() {
     <>
       <PageHeader
         title="Prix"
-        subtitle="Gérer les tarifs détail et gros de chaque produit."
+        subtitle="Tarifs de vente et coût d'achat fournisseur."
       />
       <div className="panel">
         <Table responsive hover>
@@ -19,47 +19,62 @@ export default function Prix() {
               <th>Catégorie</th>
               <th>Prix détail</th>
               <th>Prix gros</th>
-              <th>Marge indicative</th>
+              <th>Coût d&apos;achat</th>
+              <th>Marge détail</th>
             </tr>
           </thead>
           <tbody>
-            {data.products.map((p) => (
-              <tr key={p.id}>
-                <td className="fw-semibold">{p.name}</td>
-                <td>{getCategoryName(p.category_id)}</td>
-                <td style={{ minWidth: 140 }}>
-                  <Form.Control
-                    type="number"
-                    size="sm"
-                    value={p.price_retail}
-                    onChange={(e) =>
-                      updateProduct(p.id, {
-                        ...p,
-                        price_retail: Number(e.target.value),
-                      })
-                    }
-                  />
-                </td>
-                <td style={{ minWidth: 140 }}>
-                  <Form.Control
-                    type="number"
-                    size="sm"
-                    value={p.price_wholesale}
-                    onChange={(e) =>
-                      updateProduct(p.id, {
-                        ...p,
-                        price_wholesale: Number(e.target.value),
-                      })
-                    }
-                  />
-                </td>
-                <td>
-                  {formatMoney(
-                    Math.max(0, p.price_retail - p.price_wholesale)
-                  )}
-                </td>
-              </tr>
-            ))}
+            {data.products.map((p) => {
+              const cost = Number(p.cost_price) || 0;
+              return (
+                <tr key={p.id}>
+                  <td className="fw-semibold">{p.name}</td>
+                  <td>{getCategoryName(p.category_id)}</td>
+                  <td style={{ minWidth: 120 }}>
+                    <Form.Control
+                      type="number"
+                      size="sm"
+                      value={p.price_retail}
+                      onChange={(e) =>
+                        updateProduct(p.id, {
+                          ...p,
+                          price_retail: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </td>
+                  <td style={{ minWidth: 120 }}>
+                    <Form.Control
+                      type="number"
+                      size="sm"
+                      value={p.price_wholesale}
+                      onChange={(e) =>
+                        updateProduct(p.id, {
+                          ...p,
+                          price_wholesale: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </td>
+                  <td style={{ minWidth: 120 }}>
+                    <Form.Control
+                      type="number"
+                      size="sm"
+                      value={cost}
+                      onChange={(e) =>
+                        updateProduct(p.id, {
+                          ...p,
+                          cost_price: Number(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </td>
+                  <td>
+                    {formatMoney(Math.max(0, (Number(p.price_retail) || 0) - cost))}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </Table>
       </div>

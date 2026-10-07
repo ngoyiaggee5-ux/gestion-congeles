@@ -9,6 +9,14 @@ import { getProfitReportAdvice } from "../../utils/reportAdvice";
 import { filterByPeriod } from "../../utils/reportPeriod";
 import { useReportPeriod } from "../../hooks/useReportPeriod";
 
+function lineCost(item, getProduct) {
+  const snapshot = Number(item.unit_cost) || 0;
+  if (snapshot > 0) return snapshot * (Number(item.quantity) || 0);
+  const product = getProduct(item.product_id);
+  const fallback = Number(product?.cost_price) || 0;
+  return fallback * (Number(item.quantity) || 0);
+}
+
 export default function RapportBenefices() {
   const { data, formatMoney, getProduct, formatDate } = useApp();
   const periodState = useReportPeriod();
@@ -22,11 +30,10 @@ export default function RapportBenefices() {
   const rows = useMemo(
     () =>
       filteredSales.map((sale) => {
-        const cost = sale.items.reduce((sum, item) => {
-          const product = getProduct(item.product_id);
-          const unitCost = product ? product.price_wholesale * 0.75 : 0;
-          return sum + unitCost * item.quantity;
-        }, 0);
+        const cost = (sale.items || []).reduce(
+          (sum, item) => sum + lineCost(item, getProduct),
+          0
+        );
         const profit = sale.total - cost;
         return {
           sale,
@@ -41,6 +48,13 @@ export default function RapportBenefices() {
   const totalSales = rows.reduce((s, r) => s + r.sale.total, 0);
   const totalCost = rows.reduce((s, r) => s + r.cost, 0);
   const totalProfit = totalSales - totalCost;
+  const missingCost = rows.some(
+    (r) => (r.sale.items || []).some((item) => {
+      const snap = Number(item.unit_cost) || 0;
+      const product = getProduct(item.product_id);
+      return snap <= 0 && !(Number(product?.cost_price) > 0);
+    })
+  );
 
   const advice = getProfitReportAdvice({
     rows,
@@ -52,9 +66,9 @@ export default function RapportBenefices() {
   return (
     <>
       <PageHeader
-        title="Estimation des bénéfices"
-        subtitle="Indicateur approximatif — coût estimé à 75 % du prix gros. Pas une comptabilité officielle."
-        badge="Estimation"
+        title="Bénéfices"
+        subtitle="Basé sur le coût d'achat saisi (produit / entrées de stock)."
+        badge="Coût réel"
       />
 
       <ReportPeriodFilter
@@ -69,16 +83,18 @@ export default function RapportBenefices() {
 
       <div className="report-print-area">
         <ReportPrintHeader
-          title="Estimation des bénéfices"
+          title="Bénéfices"
           periodLabel={periodState.periodLabel}
-          subtitle={`Bénéfice estimé : ${formatMoney(totalProfit)} (coût ≈ 75 % du prix gros)`}
+          subtitle={`Bénéfice : ${formatMoney(totalProfit)} (coût d'achat réel)`}
         />
 
-        <div className="alert alert-warning report-estimate-banner no-print mb-3">
-          <i className="bi bi-info-circle me-2" />
-          Ces chiffres sont une <strong>estimation</strong>. Le coût d’achat réel
-          n’est pas encore saisi produit par produit.
-        </div>
+        {missingCost && (
+          <div className="alert alert-warning report-estimate-banner no-print mb-3">
+            <i className="bi bi-exclamation-triangle me-2" />
+            Certains produits n&apos;ont pas encore de coût d&apos;achat : saisissez-le
+            dans Prix / Entrées de stock pour des marges exactes.
+          </div>
+        )}
 
         <div className="stat-grid mb-4 report-print-stats">
           <div className="stat-card stat-card-ice">
@@ -86,15 +102,15 @@ export default function RapportBenefices() {
             <div className="stat-value stat-value-sm">{formatMoney(totalSales)}</div>
           </div>
           <div className="stat-card stat-card-amber">
-            <div className="stat-label">Coût estimé (≈75 % gros)</div>
+            <div className="stat-label">Coût d&apos;achat</div>
             <div className="stat-value stat-value-sm">{formatMoney(totalCost)}</div>
           </div>
           <div className="stat-card stat-card-green">
-            <div className="stat-label">Bénéfice estimé</div>
+            <div className="stat-label">Bénéfice</div>
             <div className="stat-value stat-value-sm">{formatMoney(totalProfit)}</div>
           </div>
           <div className="stat-card stat-card-purple">
-            <div className="stat-label">Marge estimée</div>
+            <div className="stat-label">Marge</div>
             <div className="stat-value">
               {totalSales ? Math.round((totalProfit / totalSales) * 100) : 0}%
             </div>
@@ -114,6 +130,7 @@ export default function RapportBenefices() {
               <thead>
                 <tr>
                   <th>Vente</th>
+                  <th>Vendeur</th>
                   <th>CA</th>
                   <th>Coût</th>
                   <th>Bénéfice</th>
@@ -125,6 +142,7 @@ export default function RapportBenefices() {
                 {rows.map(({ sale, cost, profit, margin }) => (
                   <tr key={sale.id}>
                     <td>{sale.number}</td>
+                    <td>{sale.user_name || "—"}</td>
                     <td>{formatMoney(sale.total)}</td>
                     <td>{formatMoney(cost)}</td>
                     <td>{formatMoney(profit)}</td>

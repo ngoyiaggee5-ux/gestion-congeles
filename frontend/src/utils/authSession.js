@@ -1,4 +1,4 @@
-import { AUTH_STORAGE_KEY } from "./authConstants";
+import { AUTH_STORAGE_KEY, SESSION_ACTIVE_KEY } from "./authConstants";
 
 const JWT_SECRET = "mbala-kwa-jwt-secret-v1";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
@@ -103,4 +103,16 @@ export function clearAuthSession() {
 export function getSessionExpiresAt() {
   const stored = readStoredSession();
   return stored?.expiresAt || null;
+}
+
+export function isBrowserSessionActive() {
+  return sessionStorage.getItem(SESSION_ACTIVE_KEY) === "1";
+}
+
+export function markBrowserSessionActive() {
+  sessionStorage.setItem(SESSION_ACTIVE_KEY, "1");
+}
+
+export function clearBrowserSessionActive() {
+  sessionStorage.removeItem(SESSION_ACTIVE_KEY);
 }

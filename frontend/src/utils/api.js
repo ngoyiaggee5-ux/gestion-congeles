@@ -36,6 +36,7 @@ api.interceptors.response.use(
     const isLogin = error.config?.url?.includes("/login");
     if (error.response?.status === 401 && !isLogin) {
       clearApiToken();
+      sessionStorage.removeItem("mbala-session-active");
       window.dispatchEvent(new CustomEvent("mbala:auth-expired"));
     }
     return Promise.reject(error);

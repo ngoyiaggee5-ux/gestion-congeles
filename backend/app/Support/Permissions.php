@@ -82,23 +82,42 @@ class Permissions
         self::CART_CLEAR,
     ];
 
+    /** Admin : tout sauf ventes / caisse. */
+    private const ADMIN = [
+        self::DASHBOARD,
+        self::PRODUCTS_MANAGE,
+        self::PRODUCTS_VIEW,
+        self::PRODUCTS_DELETE,
+        self::STOCK_MANAGE,
+        self::STOCK_VIEW,
+        self::BILLING_GENERATE,
+        self::BILLING_PRINT,
+        self::BILLING_HISTORY,
+        self::BILLING_DELETE,
+        self::CLIENTS_MANAGE,
+        self::CLIENTS_DELETE,
+        self::CATEGORIES_DELETE,
+        self::USERS_MANAGE,
+        self::USERS_DELETE,
+        self::SETTINGS_MANAGE,
+        self::REPORTS_SALES,
+        self::REPORTS_STOCK,
+        self::REPORTS_PROFIT,
+    ];
+
     private const LEGACY_ROLE_MAP = [
         'administrateur' => 'admin',
         'caissier' => 'manager',
     ];
 
     private const ROLE_PERMISSIONS = [
-        'admin' => self::ALL,
+        'admin' => self::ADMIN,
         'manager' => [
             self::DASHBOARD,
             self::PRODUCTS_VIEW,
             self::PRODUCTS_MANAGE,
             self::STOCK_MANAGE,
             self::STOCK_VIEW,
-            self::SALES_DETAIL,
-            self::SALES_GROS,
-            self::SALES_CART,
-            self::SALES_PAYMENT,
             self::BILLING_GENERATE,
             self::BILLING_PRINT,
             self::BILLING_HISTORY,
@@ -106,7 +125,6 @@ class Permissions
             self::REPORTS_SALES,
             self::REPORTS_STOCK,
             self::REPORTS_PROFIT,
-            self::CART_CLEAR,
         ],
         'vendeur' => [
             self::DASHBOARD,
@@ -116,7 +134,6 @@ class Permissions
             self::SALES_GROS,
             self::SALES_CART,
             self::SALES_PAYMENT,
-            self::CLIENTS_MANAGE,
             self::BILLING_HISTORY,
             self::BILLING_PRINT,
             self::CART_CLEAR,

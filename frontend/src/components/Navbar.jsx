@@ -6,7 +6,7 @@ import { getSessionExpiresAt } from "../utils/authSession";
 import { PERMISSIONS, ROLE_LABELS } from "../utils/permissions";
 
 const quickLinks = [
-  { to: "/", label: "Accueil", permission: PERMISSIONS.dashboard, end: true },
+  { to: "/dashboard", label: "Accueil", permission: PERMISSIONS.dashboard, end: true },
   { to: "/ventes/panier", label: "Ventes", permission: PERMISSIONS.salesCart },
   { to: "/stock/disponible", label: "Stock", permission: PERMISSIONS.stockView },
   {
@@ -17,7 +17,12 @@ const quickLinks = [
   { to: "/clients", label: "Clients", permission: PERMISSIONS.clientsManage },
 ];
 
-export default function Navbar({ onMenuOpen, onToggleCollapse, sidebarCollapsed }) {
+export default function Navbar({
+  onMenuOpen,
+  onToggleCollapse,
+  sidebarCollapsed,
+  onMouseEnter,
+}) {
   const { currentUser, data, logout, can } = useApp();
   const navigate = useNavigate();
   const cartCount = data.cart.reduce((n, i) => n + i.quantity, 0);
@@ -26,11 +31,11 @@ export default function Navbar({ onMenuOpen, onToggleCollapse, sidebarCollapsed 
 
   const handleLogout = async () => {
     await logout();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
   };
 
   return (
-    <header className="navbar-modern">
+    <header className="navbar-modern" onMouseEnter={onMouseEnter}>
       <div className="navbar-modern-inner">
         <div className="navbar-modern-brand">
           <VfButton
@@ -50,7 +55,7 @@ export default function Navbar({ onMenuOpen, onToggleCollapse, sidebarCollapsed 
             aria-label={sidebarCollapsed ? "Ouvrir le menu" : "Réduire le menu"}
             title={sidebarCollapsed ? "Ouvrir le menu" : "Réduire le menu"}
           />
-          <Link to="/" className="navbar-brand-link">
+          <Link to="/dashboard" className="navbar-brand-link">
             <Logo size={38} />
             <div className="navbar-brand-text">
               <span className="navbar-brand-title">MBALA KWA SELEMANI</span>

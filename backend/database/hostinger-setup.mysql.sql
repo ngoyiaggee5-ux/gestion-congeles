@@ -84,6 +84,7 @@ CREATE TABLE products (
     unit            VARCHAR(255) NOT NULL DEFAULT 'kg',
     price_retail    INT UNSIGNED NOT NULL DEFAULT 0,
     price_wholesale INT UNSIGNED NOT NULL DEFAULT 0,
+    cost_price      INT UNSIGNED NOT NULL DEFAULT 0,
     stock           DECIMAL(10,3) UNSIGNED NOT NULL DEFAULT 0,
     min_stock       DECIMAL(10,3) UNSIGNED NOT NULL DEFAULT 0,
     description     TEXT NULL,
@@ -140,6 +141,7 @@ CREATE TABLE sale_items (
     product_id      BIGINT UNSIGNED NOT NULL,
     quantity        DECIMAL(10,3) UNSIGNED NOT NULL,
     unit_price      INT UNSIGNED NOT NULL,
+    unit_cost       INT UNSIGNED NOT NULL DEFAULT 0,
     line_total      INT UNSIGNED NULL,
     created_at      TIMESTAMP NULL,
     updated_at      TIMESTAMP NULL,
@@ -238,7 +240,8 @@ INSERT INTO migrations (migration, batch) VALUES
 ('2026_01_01_000008_create_settings_table', 1),
 ('2026_08_26_000001_add_activity_logs_and_verification', 2),
 ('2026_08_26_000002_decimal_stock_quantities', 2),
-('2026_08_26_000003_add_line_total_to_sale_items', 2);
+('2026_08_26_000003_add_line_total_to_sale_items', 2),
+('2026_08_31_000001_add_cost_price_and_sale_item_unit_cost', 3);
 
 -- ============================================================
 -- Comptes utilisateurs (changez les mots de passe en production)

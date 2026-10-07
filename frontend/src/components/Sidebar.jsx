@@ -24,8 +24,6 @@ const sections = [
     icon: "bi-archive",
     permission: PERMISSIONS.stockView,
     items: [
-      { to: "/stock/entrees", label: "Entrées", permission: PERMISSIONS.stockManage },
-      { to: "/stock/sorties", label: "Sorties", permission: PERMISSIONS.stockManage },
       { to: "/stock/disponible", label: "Stock disponible", permission: PERMISSIONS.stockView },
       { to: "/stock/historique", label: "Historique", permission: PERMISSIONS.stockView },
     ],
@@ -123,7 +121,7 @@ export default function Sidebar({ open, collapsed, onClose, onToggleCollapse }) 
     <>
       {open && <div className="sidebar-backdrop" onClick={onClose} />}
       <aside className={`sidebar ${open ? "open" : ""}${collapsed ? " collapsed" : ""}`}>
-        <Link to="/" className="brand" onClick={onClose} title="MBALA KWA SELEMANI">
+        <Link to="/dashboard" className="brand" onClick={onClose} title="MBALA KWA SELEMANI">
           <Logo size={collapsed ? 40 : 46} />
           {!collapsed && (
             <div>
@@ -133,71 +131,85 @@ export default function Sidebar({ open, collapsed, onClose, onToggleCollapse }) 
           )}
         </Link>
 
-        {showDashboard && (
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              `nav-section-btn ${isActive ? "active" : ""}`
-            }
-            onClick={onClose}
-            title="Tableau de bord"
-            style={{ marginBottom: "0.4rem" }}
-          >
-            <span>
-              <i className="bi bi-speedometer2" />
-              {!collapsed && "Tableau de bord"}
-            </span>
-          </NavLink>
-        )}
-
         {!collapsed ? (
-          <Accordion flush alwaysOpen defaultActiveKey={visibleSections.map((s) => s.key)}>
-            {visibleSections.map((section) =>
-              section.to ? (
-                <div className="nav-section" key={section.key}>
-                  <NavLink
-                    to={section.to}
-                    className={({ isActive }) =>
-                      `nav-section-btn ${isActive ? "active" : ""}`
-                    }
-                    onClick={onClose}
-                  >
-                    <span>
-                      <i className={`bi ${section.icon}`} />
-                      {section.label}
-                    </span>
-                  </NavLink>
-                </div>
-              ) : (
-                <Accordion.Item
-                  eventKey={section.key}
-                  key={section.key}
-                  className="bg-transparent border-0"
-                >
-                  <Accordion.Header className="nav-acc-header">
-                    <span>
-                      <i className={`bi ${section.icon} me-2`} />
-                      {section.label}
-                    </span>
-                  </Accordion.Header>
-                  <Accordion.Body className="p-0">
-                    <ul className="nav-sub">
-                      {section.items.map((item) => (
-                        <li key={item.to}>
-                          <NavLink to={item.to} onClick={onClose}>
-                            {item.label}
-                          </NavLink>
-                        </li>
-                      ))}
-                    </ul>
-                  </Accordion.Body>
-                </Accordion.Item>
-              )
+          <>
+            {showDashboard && (
+              <NavLink
+                to="/dashboard"
+                end
+                className={({ isActive }) =>
+                  `nav-section-btn ${isActive ? "active" : ""}`
+                }
+                onClick={onClose}
+                title="Tableau de bord"
+                style={{ marginBottom: "0.4rem" }}
+              >
+                <span>
+                  <i className="bi bi-speedometer2" />
+                  Tableau de bord
+                </span>
+              </NavLink>
             )}
-          </Accordion>
+            <Accordion flush alwaysOpen defaultActiveKey={visibleSections.map((s) => s.key)}>
+              {visibleSections.map((section) =>
+                section.to ? (
+                  <div className="nav-section" key={section.key}>
+                    <NavLink
+                      to={section.to}
+                      className={({ isActive }) =>
+                        `nav-section-btn ${isActive ? "active" : ""}`
+                      }
+                      onClick={onClose}
+                    >
+                      <span>
+                        <i className={`bi ${section.icon}`} />
+                        {section.label}
+                      </span>
+                    </NavLink>
+                  </div>
+                ) : (
+                  <Accordion.Item
+                    eventKey={section.key}
+                    key={section.key}
+                    className="bg-transparent border-0"
+                  >
+                    <Accordion.Header className="nav-acc-header">
+                      <span>
+                        <i className={`bi ${section.icon} me-2`} />
+                        {section.label}
+                      </span>
+                    </Accordion.Header>
+                    <Accordion.Body className="p-0">
+                      <ul className="nav-sub">
+                        {section.items.map((item) => (
+                          <li key={item.to}>
+                            <NavLink to={item.to} onClick={onClose}>
+                              {item.label}
+                            </NavLink>
+                          </li>
+                        ))}
+                      </ul>
+                    </Accordion.Body>
+                  </Accordion.Item>
+                )
+              )}
+            </Accordion>
+          </>
         ) : (
           <div className="sidebar-icon-nav">
+            {showDashboard && (
+              <NavLink
+                to="/dashboard"
+                end
+                className={({ isActive }) =>
+                  `sidebar-icon-link ${isActive ? "active" : ""}`
+                }
+                onClick={onClose}
+                title="Tableau de bord"
+              >
+                <i className="bi bi-speedometer2" />
+              </NavLink>
+            )}
             {visibleSections.map((section) => {
               const target = section.to || section.items?.[0]?.to || "/";
               return (

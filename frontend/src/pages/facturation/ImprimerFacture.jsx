@@ -5,8 +5,7 @@ import QRCode from "react-qr-code";
 import PageHeader from "../../components/PageHeader";
 import Logo from "../../components/Logo";
 import { useApp } from "../../data/AppContext";
-import { buildInvoiceQrPayload, getInvoiceVerifyUrl } from "../../utils/invoiceQr";
-import { formatCdf } from "../../utils/settings";
+import { buildInvoiceQrPayload } from "../../utils/invoiceQr";
 import { resolveLineTotal, formatCartQuantity } from "../../utils/saleAmount";
 
 export default function ImprimerFacture() {
@@ -27,14 +26,13 @@ export default function ImprimerFacture() {
   );
   const sale = data.sales.find((s) => s.id === invoice?.sale_id);
   const client = getClient(invoice?.client_id);
-  const verifyUrl = invoice ? getInvoiceVerifyUrl(invoice.number) : "";
   const qrPayload = invoice ? buildInvoiceQrPayload(invoice) : "";
 
   return (
     <>
       <PageHeader
         title="Imprimer facture"
-        subtitle="Aperçu imprimable de la facture sélectionnée."
+        subtitle="Aperçu imprimable compact."
         actions={
           <Button className="btn-vf no-print" onClick={() => window.print()}>
             <i className="bi bi-printer me-1" />
@@ -57,36 +55,28 @@ export default function ImprimerFacture() {
       </div>
 
       {invoice && (
-        <div className="panel" id="invoice-print">
-          <div className="d-flex justify-content-between align-items-start mb-4">
-            <div className="d-flex align-items-center gap-3">
-              <Logo size={72} className="brand-logo-invoice" />
+        <div className="panel invoice-ticket" id="invoice-print">
+          <div className="invoice-ticket-head">
+            <div className="invoice-ticket-brand">
+              <Logo size={40} className="brand-logo-invoice" />
               <div>
-                <h2 style={{ fontFamily: "var(--font-display)", color: "var(--vf-green)" }}>
-                  MBALA KWA SELEMANI
-                </h2>
-                <div className="text-muted">Gestion congelé · Facture</div>
+                <h2>MBALA KWA SELEMANI</h2>
+                <p>Facture</p>
               </div>
             </div>
-            <div className="text-end">
-              <div className="fw-bold fs-5">{invoice.number}</div>
-              <div>{formatDate(invoice.created_at)}</div>
-              <div className="text-capitalize">{invoice.status}</div>
+            <div className="invoice-ticket-meta">
+              <strong>{invoice.number}</strong>
+              <span>{formatDate(invoice.created_at)}</span>
             </div>
           </div>
 
-          <div className="mb-4">
-            <strong>Client</strong>
-            <div>{getClientDisplayName(invoice)}</div>
-            {client && (
-              <>
-                <div>{client.phone}</div>
-                <div>{client.address}</div>
-              </>
-            )}
+          <div className="invoice-ticket-client">
+            <span>Client</span>
+            <strong>{getClientDisplayName(invoice)}</strong>
+            {client?.phone && <span>{client.phone}</span>}
           </div>
 
-          <Table>
+          <Table className="invoice-ticket-table mb-0">
             <thead>
               <tr>
                 <th>Produit</th>
@@ -99,49 +89,40 @@ export default function ImprimerFacture() {
               {sale?.items.map((item, idx) => {
                 const product = getProduct(item.product_id);
                 return (
-                <tr key={idx}>
-                  <td>{product?.name}</td>
-                  <td>{formatCartQuantity(item.quantity, product?.unit)}</td>
-                  <td>{formatMoney(item.unit_price)}</td>
-                  <td>{formatMoney(resolveLineTotal(item))}</td>
-                </tr>
+                  <tr key={idx}>
+                    <td>{product?.name}</td>
+                    <td>{formatCartQuantity(item.quantity, product?.unit)}</td>
+                    <td>{formatMoney(item.unit_price)}</td>
+                    <td>{formatMoney(resolveLineTotal(item))}</td>
+                  </tr>
                 );
               })}
             </tbody>
           </Table>
 
-          <div className="text-end fs-4 fw-bold mt-3">
-            Total : {formatMoney(invoice.total)}
+          <div className="invoice-ticket-total">
+            <strong>Total : {formatMoney(invoice.total)}</strong>
+            {sale && (
+              <span>
+                {sale.payment_method} · {sale.type}
+              </span>
+            )}
           </div>
-          {sale && (
-            <div className="text-end text-muted">
-              Paiement : {sale.payment_method} · Vente {sale.type}
-            </div>
-          )}
 
-          <div className="invoice-qr-block">
+          <div className="invoice-qr-block invoice-qr-only">
             <div className="invoice-qr-box">
               <QRCode
                 value={qrPayload}
-                size={120}
+                size={88}
                 level="M"
                 bgColor="#ffffff"
-                fgColor="#0b6e4f"
+                fgColor={
+                  getComputedStyle(document.documentElement)
+                    .getPropertyValue("--vf-green")
+                    .trim() || "#0b6e4f"
+                }
                 className="invoice-qr-code"
               />
-            </div>
-            <div className="invoice-qr-caption">
-              <div className="invoice-qr-title">
-                <i className="bi bi-qr-code-scan me-1" />
-                Vérification
-              </div>
-              <div className="invoice-qr-text">
-                {invoice.number} · {formatCdf(invoice.total)}
-              </div>
-              <div className="invoice-qr-text">
-                Scannez pour vérifier l’authenticité de cette facture.
-              </div>
-              <div className="invoice-qr-url">{verifyUrl}</div>
             </div>
           </div>
         </div>

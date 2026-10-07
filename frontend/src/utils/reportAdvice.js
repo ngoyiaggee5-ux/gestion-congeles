@@ -123,7 +123,7 @@ export function getStockReportAdvice({
     advice.push({
       level: "success",
       title: "Valeur du stock",
-      text: `Capital immobilisé estimé (prix gros) : ${formatMoney(valeur)}. Ajustez vos achats en fonction de la demande.`,
+      text: `Capital immobilisé (coût d'achat) : ${formatMoney(valeur)}. Ajustez vos achats en fonction de la demande.`,
     });
   }
 
@@ -181,7 +181,7 @@ export function getProfitReportAdvice({
   advice.push({
     level: "success",
     title: "Bénéfice net",
-    text: `Bénéfice estimé sur la période : ${formatMoney(totalProfit)} pour ${formatMoney(totalSales)} de chiffre d'affaires.`,
+    text: `Bénéfice sur la période : ${formatMoney(totalProfit)} pour ${formatMoney(totalSales)} de chiffre d'affaires.`,
   });
 
   const lowMargin = rows.filter((r) => r.margin < 10 && r.sale.total > 0);

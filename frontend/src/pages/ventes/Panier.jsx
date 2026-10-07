@@ -19,18 +19,16 @@ function cartKey(item) {
 }
 
 function commitQty(raw, maxStock, unit = "kg", mode = "détail") {
-  if (mode === "gros") {
-    const parsed = parseInt(String(raw).trim(), 10);
-    if (!Number.isFinite(parsed) || parsed < 1) return 1;
-    return Math.min(parsed, maxStock);
-  }
   const parsed = isWeightUnit(unit)
     ? parseFloat(String(raw).trim().replace(",", "."))
     : parseInt(String(raw).trim(), 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return isWeightUnit(unit) ? 0.001 : 1;
   }
-  return Math.min(parsed, maxStock);
+  const qty = isWeightUnit(unit)
+    ? Math.round(parsed * 1000) / 1000
+    : Math.round(parsed);
+  return Math.min(qty, maxStock);
 }
 
 function qtyChanged(prev, next) {

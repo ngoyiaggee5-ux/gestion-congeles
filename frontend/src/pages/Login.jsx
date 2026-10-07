@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Alert, Form } from "react-bootstrap";
-import Logo from "../components/Logo";
+import { Alert, Form, Spinner } from "react-bootstrap";
+import LoginParticles from "../components/LoginParticles";
 import PasswordField from "../components/PasswordField";
 import VfButton from "../components/VfButton";
 import { useApp } from "../data/AppContext";
@@ -21,8 +21,16 @@ export default function Login() {
     return <Navigate to={getDefaultHomeForRole(currentUser?.role)} replace />;
   }
 
+  const canSubmit = Boolean(email.trim() && password) && !loading;
+
+  const clearFeedback = () => {
+    if (error) setError("");
+    if (warning) setWarning("");
+  };
+
   const submit = async (e) => {
     e.preventDefault();
+    if (!canSubmit) return;
     setLoading(true);
     setError("");
     setWarning("");
@@ -34,46 +42,37 @@ export default function Login() {
       if (result.warning) setWarning(result.warning);
       navigate(getDefaultHomeForRole(result.user?.role), { replace: true });
     } else {
-      setError(result.message);
+      setError(result.message || "Connexion impossible. Vérifiez vos identifiants.");
     }
   };
 
   return (
     <div className="login-page">
-      <div className="login-shell">
-        <aside className="login-brand-panel">
-          <Logo size={96} className="login-logo" />
-          <p className="login-kicker">Congélateur commercial</p>
-          <h1>MBALA KWA SELEMANI</h1>
-          <p className="login-tagline">
-            Caisse, stock froid et factures — une seule application pour votre
-            quotidien.
-          </p>
-          <ul className="login-highlights">
-            <li>
-              <i className="bi bi-snow" /> Stock froid suivi en direct
-            </li>
-            <li>
-              <i className="bi bi-lightning-charge" /> Encaissement détail & gros
-            </li>
-            <li>
-              <i className="bi bi-shield-check" /> Connexion sécurisée
-            </li>
-          </ul>
-        </aside>
-
+      <LoginParticles />
+      <div className="login-shell login-shell--glass login-shell--solo">
         <div className="login-card">
-          <div className="login-brand login-brand-mobile">
-            <Logo size={72} className="login-logo" />
-            <h1>MBALA KWA SELEMANI</h1>
-            <p>Connexion sécurisée</p>
+          <div className="login-form-header">
+            <h1 className="login-form-title">Se connecter</h1>
+            <p className="login-form-sub">
+              Accédez à votre caisse, stock et factures.
+            </p>
+            <span className="login-secure-badge">
+              <i className="bi bi-lock-fill" aria-hidden="true" />
+              Connexion sécurisée
+            </span>
           </div>
 
-          <h2 className="login-form-title">Se connecter</h2>
-          <p className="login-form-sub">Accédez à votre espace de travail.</p>
-
-          {error && <Alert variant="danger">{error}</Alert>}
-          {warning && <Alert variant="warning">{warning}</Alert>}
+          {error && (
+            <Alert variant="danger" className="login-alert" role="alert">
+              <i className="bi bi-exclamation-triangle-fill me-2" aria-hidden="true" />
+              {error}
+            </Alert>
+          )}
+          {warning && (
+            <Alert variant="warning" className="login-alert" role="status">
+              {warning}
+            </Alert>
+          )}
 
           <Form
             onSubmit={submit}
@@ -81,54 +80,107 @@ export default function Login() {
             data-lpignore="true"
             data-1p-ignore
             data-bwignore="true"
+            aria-busy={loading}
           >
             <div className="login-autofill-trap" aria-hidden="true">
-              <input type="text" name="username" autoComplete="username" tabIndex={-1} defaultValue="" readOnly />
-              <input type="password" name="password" autoComplete="current-password" tabIndex={-1} defaultValue="" readOnly />
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                tabIndex={-1}
+                defaultValue=""
+                readOnly
+              />
+              <input
+                type="password"
+                name="password"
+                autoComplete="current-password"
+                tabIndex={-1}
+                defaultValue=""
+                readOnly
+              />
             </div>
 
-            <Form.Group className="mb-3">
+            <Form.Group className="mb-3 login-field">
               <Form.Label htmlFor="mbala-user-identity">Adresse e-mail</Form.Label>
-              <Form.Control
-                id="mbala-user-identity"
-                type="text"
-                inputMode="email"
-                name="mbala_user_identity"
-                placeholder="votre@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onFocus={(e) => {
-                  if (!emailFocused) {
-                    setEmailFocused(true);
-                    e.target.removeAttribute("readonly");
-                  }
-                }}
-                required
-                pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
-                title="Adresse e-mail invalide"
-                readOnly={!emailFocused}
-                autoComplete="off"
-                spellCheck={false}
-                data-lpignore="true"
-                data-1p-ignore
-                data-bwignore="true"
-                data-form-type="other"
-              />
+              <div className="login-field-input">
+                <Form.Control
+                  id="mbala-user-identity"
+                  type="text"
+                  inputMode="email"
+                  name="mbala_user_identity"
+                  placeholder="votre@email.com"
+                  value={email}
+                  onChange={(e) => {
+                    clearFeedback();
+                    setEmail(e.target.value);
+                  }}
+                  onFocus={(e) => {
+                    if (!emailFocused) {
+                      setEmailFocused(true);
+                      e.target.removeAttribute("readonly");
+                    }
+                  }}
+                  required
+                  pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
+                  title="Adresse e-mail invalide"
+                  readOnly={!emailFocused}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  disabled={loading}
+                  aria-invalid={Boolean(error)}
+                  data-lpignore="true"
+                  data-1p-ignore
+                  data-bwignore="true"
+                  data-form-type="other"
+                />
+                <span className="login-field-line" aria-hidden="true" />
+              </div>
             </Form.Group>
-            <div className="mb-4">
+            <div className="mb-4 login-field">
               <PasswordField
                 id="mbala-secret-code"
                 name="mbala_secret_code"
                 label="Mot de passe"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  clearFeedback();
+                  setPassword(e.target.value);
+                }}
                 antiAutofill
                 required
+                underline
+                disabled={loading}
               />
             </div>
-            <VfButton type="submit" className="w-100" disabled={loading} icon="bi-shield-lock">
-              {loading ? "Connexion…" : "Entrer"}
+            <VfButton
+              type="submit"
+              className="w-100 login-submit-btn"
+              disabled={!canSubmit}
+              icon={loading ? undefined : "bi-box-arrow-in-right"}
+              aria-busy={loading}
+            >
+              {loading ? (
+                <>
+                  <Spinner
+                    as="span"
+                    animation="border"
+                    size="sm"
+                    role="status"
+                    aria-hidden="true"
+                    className="me-2"
+                  />
+                  Connexion…
+                </>
+              ) : (
+                "Entrer"
+              )}
             </VfButton>
+            <p className="login-footnote">
+              Utilisez le compte fourni par votre administrateur.
+            </p>
           </Form>
         </div>
       </div>

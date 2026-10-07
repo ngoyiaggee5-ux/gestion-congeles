@@ -62,22 +62,22 @@ class DatabaseSeeder extends Seeder
         Product::insert([
             [
                 'category_id' => 1, 'name' => 'Poulet entier', 'sku' => 'VI-001', 'unit' => 'kg',
-                'price_retail' => 2800, 'price_wholesale' => 2400, 'stock' => 120, 'min_stock' => 20,
+                'price_retail' => 2800, 'price_wholesale' => 2400, 'cost_price' => 1800, 'stock' => 120, 'min_stock' => 20,
                 'description' => 'Poulet fermier congelé', 'created_at' => now(), 'updated_at' => now(),
             ],
             [
                 'category_id' => 2, 'name' => 'Filet de tilapia', 'sku' => 'PO-014', 'unit' => 'kg',
-                'price_retail' => 3500, 'price_wholesale' => 3000, 'stock' => 45, 'min_stock' => 15,
+                'price_retail' => 3500, 'price_wholesale' => 3000, 'cost_price' => 2200, 'stock' => 45, 'min_stock' => 15,
                 'description' => 'Filets sans arêtes', 'created_at' => now(), 'updated_at' => now(),
             ],
             [
                 'category_id' => 3, 'name' => 'Haricots verts', 'sku' => 'LE-008', 'unit' => 'sac 1kg',
-                'price_retail' => 1200, 'price_wholesale' => 950, 'stock' => 8, 'min_stock' => 25,
+                'price_retail' => 1200, 'price_wholesale' => 950, 'cost_price' => 700, 'stock' => 8, 'min_stock' => 25,
                 'description' => 'Portion familiale', 'created_at' => now(), 'updated_at' => now(),
             ],
             [
                 'category_id' => 4, 'name' => 'Pizza 4 fromages', 'sku' => 'PL-003', 'unit' => 'pièce',
-                'price_retail' => 2500, 'price_wholesale' => 2100, 'stock' => 60, 'min_stock' => 10,
+                'price_retail' => 2500, 'price_wholesale' => 2100, 'cost_price' => 1500, 'stock' => 60, 'min_stock' => 10,
                 'description' => '30 cm', 'created_at' => now(), 'updated_at' => now(),
             ],
         ]);

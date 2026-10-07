@@ -20,7 +20,15 @@ export default function ModifierProduit() {
 
   const save = (e) => {
     e.preventDefault();
-    updateProduct(editing.id, editing);
+    updateProduct(editing.id, {
+      ...editing,
+      price_retail: Number(editing.price_retail) || 0,
+      price_wholesale: Number(editing.price_wholesale) || 0,
+      cost_price: Number(editing.cost_price) || 0,
+      stock: Number(editing.stock) || 0,
+      min_stock: Number(editing.min_stock) || 0,
+      category_id: Number(editing.category_id),
+    });
     setEditing(null);
   };
 
@@ -39,6 +47,7 @@ export default function ModifierProduit() {
               <th>Catégorie</th>
               <th>Détail</th>
               <th>Gros</th>
+              <th>Coût</th>
               <th>Stock</th>
               <th></th>
             </tr>
@@ -51,6 +60,7 @@ export default function ModifierProduit() {
                 <td>{getCategoryName(p.category_id)}</td>
                 <td>{formatMoney(p.price_retail)}</td>
                 <td>{formatMoney(p.price_wholesale)}</td>
+                <td>{formatMoney(p.cost_price || 0)}</td>
                 <td>
                   {p.stock} {p.unit}
                 </td>
@@ -181,7 +191,7 @@ export default function ModifierProduit() {
                 <div className="modal-form-section">
                   <h6 className="modal-form-section-title">Prix & stock</h6>
                   <Row className="g-3">
-                    <Col sm={6} md={3}>
+                    <Col xs={6} md={2}>
                       <Form.Group>
                         <Form.Label>Prix détail (CDF)</Form.Label>
                         <Form.Control
@@ -197,7 +207,7 @@ export default function ModifierProduit() {
                         />
                       </Form.Group>
                     </Col>
-                    <Col sm={6} md={3}>
+                    <Col xs={6} md={2}>
                       <Form.Group>
                         <Form.Label>Prix gros (CDF)</Form.Label>
                         <Form.Control
@@ -213,33 +223,50 @@ export default function ModifierProduit() {
                         />
                       </Form.Group>
                     </Col>
-                    <Col sm={6} md={3}>
+                    <Col xs={12} md={3}>
+                      <Form.Group>
+                        <Form.Label>Coût d&apos;achat (CDF)</Form.Label>
+                        <Form.Control
+                          type="number"
+                          min="0"
+                          value={editing.cost_price ?? 0}
+                          onChange={(e) =>
+                            setEditing({
+                              ...editing,
+                              cost_price: e.target.value,
+                            })
+                          }
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col xs={6} md={3}>
                       <Form.Group>
                         <Form.Label>Stock actuel</Form.Label>
                         <Form.Control
                           type="number"
                           min="0"
                           value={editing.stock}
-                          className={
+                          className={`input-qty-field${
                             editing.stock <= 0
-                              ? "input-stock-danger"
+                              ? " input-stock-danger"
                               : Number(editing.stock) <= Number(editing.min_stock)
-                                ? "input-stock-warning"
+                                ? " input-stock-warning"
                                 : ""
-                          }
+                          }`}
                           onChange={(e) =>
                             setEditing({ ...editing, stock: e.target.value })
                           }
                         />
                       </Form.Group>
                     </Col>
-                    <Col sm={6} md={3}>
+                    <Col xs={6} md={2}>
                       <Form.Group>
                         <Form.Label>Seuil d&apos;alerte</Form.Label>
                         <Form.Control
                           type="number"
                           min="0"
                           value={editing.min_stock}
+                          className="input-qty-field"
                           onChange={(e) =>
                             setEditing({ ...editing, min_stock: e.target.value })
                           }

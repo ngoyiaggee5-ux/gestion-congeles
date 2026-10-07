@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\Sale;
 use App\Support\ActivityLogger;
+use App\Support\DataSync;
+use App\Support\DocumentNumbers;
 use App\Support\InvoiceVerification;
 use App\Support\Permissions;
 use Illuminate\Http\Request;
@@ -78,12 +80,7 @@ class InvoiceController extends Controller
             return response()->json($sale->invoice->load(['sale.items.product', 'client']));
         }
 
-        $invoiceNumber = 'FA-'.now()->format('Y').'-'.str_pad(
-            Invoice::count() + 1,
-            4,
-            '0',
-            STR_PAD_LEFT
-        );
+        $invoiceNumber = DB::transaction(fn () => DocumentNumbers::nextInvoiceNumber());
 
         $invoice = Invoice::create([
             'number' => $invoiceNumber,
@@ -94,6 +91,8 @@ class InvoiceController extends Controller
             'status' => 'émise',
             'verification_code' => InvoiceVerification::generateCode($invoiceNumber, (int) $sale->total),
         ]);
+
+        DataSync::bump();
 
         return response()->json(
             $invoice->load(['sale.items.product', 'client']),
@@ -118,6 +117,7 @@ class InvoiceController extends Controller
         }
 
         $record->delete();
+        DataSync::bump();
 
         return response()->json(['message' => 'Facture supprimée']);
     }
@@ -145,6 +145,7 @@ class InvoiceController extends Controller
             }
 
             Invoice::query()->delete();
+            DataSync::bump();
 
             return response()->json([
                 'message' => "{$count} facture(s) supprimée(s).",

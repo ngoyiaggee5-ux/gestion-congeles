@@ -34,6 +34,11 @@ import {
   amountFromQuantity,
 } from "../utils/saleAmount";
 import { api as apiClient, getApiToken, setApiToken, clearApiToken } from "../utils/api";
+import {
+  clearBrowserSessionActive,
+  isBrowserSessionActive,
+  markBrowserSessionActive,
+} from "../utils/authSession";
 import { fetchAppState, fetchInvoices, reloadAfterMutation } from "../utils/apiSync";
 import { mergeAppearance, saveAppearancePrefs } from "../utils/appearanceStorage";
 import { normalizeSettings } from "../utils/settings";
@@ -43,6 +48,7 @@ import {
 } from "../utils/activityLog";
 import { dispatchStockAlert } from "../utils/stockAlert";
 import { mapAppState, loadCartFromStorage, saveCartToStorage } from "../utils/mapAppState";
+import { useLiveSync } from "../hooks/useLiveSync";
 
 const AppContext = createContext(null);
 
@@ -65,7 +71,9 @@ async function resolveCurrentUser(data) {
 export function AppProvider({ children }) {
   const [data, setData] = useState(() => {
     const initial = getData();
-    initial.settings = mergeAppearance(normalizeSettings(initial.settings));
+    initial.settings = mergeAppearance(normalizeSettings(initial.settings), {
+      preferLocal: false,
+    });
     return initial;
   });
   const [currentUser, setCurrentUser] = useState(null);
@@ -74,6 +82,7 @@ export function AppProvider({ children }) {
   useEffect(() => {
     const onExpired = () => {
       clearAuthSession();
+      clearBrowserSessionActive();
       setCurrentUser(null);
     };
     window.addEventListener("mbala:auth-expired", onExpired);
@@ -87,7 +96,10 @@ export function AppProvider({ children }) {
       try {
         if (isApiMode) {
           clearAuthSession();
-          if (!getApiToken()) return;
+          if (!isBrowserSessionActive() || !getApiToken()) {
+            clearApiToken();
+            return;
+          }
           const { data: me } = await apiClient.get("/me");
           const appData = await loadFromApi();
           if (!active) return;
@@ -101,6 +113,10 @@ export function AppProvider({ children }) {
           setData(appData);
           applyAppearance(appData.settings);
         } else {
+          if (!isBrowserSessionActive()) {
+            clearAuthSession();
+            return;
+          }
           const user = await resolveCurrentUser(getData());
           if (!active) return;
           setCurrentUser(user);
@@ -108,6 +124,7 @@ export function AppProvider({ children }) {
       } catch {
         clearApiToken();
         clearAuthSession();
+        clearBrowserSessionActive();
         setCurrentUser(null);
       } finally {
         if (active) setAuthReady(true);
@@ -149,6 +166,14 @@ export function AppProvider({ children }) {
     return next;
   }, []);
 
+  useLiveSync({
+    enabled: authReady && !!currentUser && isApiMode && !!getApiToken(),
+    onRemoteChange: async () => {
+      const cart = loadCartFromStorage();
+      await syncFromApi(cart);
+    },
+  });
+
   const refreshData = useCallback(async (cart) => syncFromApi(cart), [syncFromApi]);
 
   const syncInvoicesFromApi = useCallback(async () => {
@@ -186,14 +211,17 @@ export function AppProvider({ children }) {
       authReady,
       isApiMode,
       currentUser,
-      isAuthenticated: !!currentUser && (!isApiMode || !!getApiToken()),
+      isAuthenticated:
+        !!currentUser &&
+        isBrowserSessionActive() &&
+        (!isApiMode || !!getApiToken()),
       can: (permission) => checkCan(currentUser, permission),
       canAccessRoute: (pathname) => checkRouteAccess(currentUser, pathname),
       getRolePermissions: (role) => getRolePermissions(role),
       login: async (email, password) => {
         if (isApiMode) {
           const apiUnreachable =
-            "API inaccessible. Lancez backend/demarrer-api.bat puis réessayez.";
+            "API inaccessible. En local : lancez backend/demarrer-api.bat puis npm run dev dans frontend/.";
           const formatApiError = (error, fallback) => {
             const status = error.response?.status;
             if (status === 429) {
@@ -249,6 +277,8 @@ export function AppProvider({ children }) {
               };
             }
             setCurrentUser(user);
+            markBrowserSessionActive();
+            sessionStorage.setItem("mbala-pending-welcome", String(user.id));
             return { ok: true, user };
           } catch (error) {
             return {
@@ -261,6 +291,11 @@ export function AppProvider({ children }) {
         const result = await authenticateUser(email, password);
         if (result.ok) {
           setCurrentUser(result.user);
+          markBrowserSessionActive();
+          sessionStorage.setItem(
+            "mbala-pending-welcome",
+            String(result.user.id)
+          );
           return { ok: true, user: result.user };
         }
         return result;
@@ -275,6 +310,7 @@ export function AppProvider({ children }) {
           clearApiToken();
         }
         clearAuthSession();
+        clearBrowserSessionActive();
         setCurrentUser(null);
       },
       formatMoney: (value) => formatMoneyUtil(value, normalizeSettings(data.settings)),
@@ -298,12 +334,14 @@ export function AppProvider({ children }) {
           if (
             partial.theme ||
             partial.font ||
+            partial.palette ||
             partial.currency ||
             partial.usdRate !== undefined
           ) {
             saveAppearancePrefs({
               ...(partial.theme ? { theme: partial.theme } : {}),
               ...(partial.font ? { font: partial.font } : {}),
+              ...(partial.palette ? { palette: partial.palette } : {}),
               ...(partial.currency ? { currency: partial.currency } : {}),
               ...(partial.usdRate !== undefined
                 ? { usdRate: Number(partial.usdRate) || 2800 }
@@ -321,10 +359,18 @@ export function AppProvider({ children }) {
           }));
           try {
             const { data: saved } = await apiClient.put("/settings", partial);
-            setData((prev) => ({
-              ...prev,
-              settings: mergeAppearance({ ...prev.settings, ...saved }),
-            }));
+            setData((prev) => {
+              const next = normalizeSettings({ ...prev.settings, ...saved });
+              saveAppearancePrefs({
+                theme: next.theme,
+                font: next.font,
+                palette: next.palette,
+                currency: next.currency,
+                usdRate: next.usdRate,
+              });
+              applyAppearance(next);
+              return { ...prev, settings: next };
+            });
           } catch {
             /* garder le réglage local */
           }
@@ -384,6 +430,7 @@ export function AppProvider({ children }) {
             category_id: Number(payload.category_id),
             price_retail: Number(payload.price_retail) || 0,
             price_wholesale: Number(payload.price_wholesale) || 0,
+            cost_price: Number(payload.cost_price) || 0,
             stock: Number(payload.stock) || 0,
             min_stock: Number(payload.min_stock) || 0,
           });
@@ -477,17 +524,32 @@ export function AppProvider({ children }) {
         }
         mutate((d) => {
           const qty = Number(payload.quantity);
+          const unitCost = Number(payload.unit_cost) || 0;
           const product = d.products.find((p) => p.id === Number(payload.product_id));
           if (!product) return d;
-          if (payload.type === "entrée") product.stock += qty;
-          else product.stock = Math.max(0, product.stock - qty);
+          if (payload.type === "entrée") {
+            const stockBefore = Math.max(0, Number(product.stock) || 0);
+            const oldCost = Number(product.cost_price) || 0;
+            if (unitCost > 0) {
+              if (stockBefore <= 0 || oldCost <= 0) {
+                product.cost_price = unitCost;
+              } else {
+                product.cost_price = Math.round(
+                  (stockBefore * oldCost + qty * unitCost) / (stockBefore + qty)
+                );
+              }
+            }
+            product.stock += qty;
+          } else {
+            product.stock = Math.max(0, product.stock - qty);
+          }
           const id = d.nextIds.stockMovements++;
           d.stockMovements.unshift({
             id,
             product_id: Number(payload.product_id),
             type: payload.type,
             quantity: qty,
-            unit_cost: Number(payload.unit_cost) || 0,
+            unit_cost: unitCost,
             reference: payload.reference || `${payload.type === "entrée" ? "BE" : "BS"}-${id}`,
             note: payload.note || "",
             created_at: new Date().toISOString(),
@@ -827,12 +889,18 @@ export function AppProvider({ children }) {
             type,
             client_id: resolvedClientId,
             client_name: resolvedClientName,
-            items: items.map((i) => ({
-              product_id: i.product_id,
-              quantity: i.quantity,
-              unit_price: i.unit_price,
-              line_total: cartLineTotal(i),
-            })),
+            user_id: currentUser?.id ?? null,
+            user_name: currentUser?.name || "—",
+            items: items.map((i) => {
+              const product = d.products.find((p) => p.id === i.product_id);
+              return {
+                product_id: i.product_id,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+                unit_cost: Number(product?.cost_price) || 0,
+                line_total: cartLineTotal(i),
+              };
+            }),
             payment_method,
             status: "payée",
             total,
@@ -840,6 +908,7 @@ export function AppProvider({ children }) {
           });
           for (const item of items) {
             const product = d.products.find((p) => p.id === item.product_id);
+            const unitCost = Number(product?.cost_price) || 0;
             product.stock -= item.quantity;
             const movId = d.nextIds.stockMovements++;
             d.stockMovements.unshift({
@@ -847,7 +916,7 @@ export function AppProvider({ children }) {
               product_id: item.product_id,
               type: "sortie",
               quantity: item.quantity,
-              unit_cost: 0,
+              unit_cost: unitCost,
               reference: number,
               note: `Vente ${type}`,
               created_at: new Date().toISOString(),

@@ -21,6 +21,7 @@ export function mapAppState(payload, cart = []) {
     min_stock: Number(product.min_stock) || 0,
     price_retail: Number(product.price_retail) || 0,
     price_wholesale: Number(product.price_wholesale) || 0,
+    cost_price: Number(product.cost_price) || 0,
   }));
   const stockMovements = payload.stockMovements || [];
   const clients = payload.clients || [];
@@ -35,6 +36,7 @@ export function mapAppState(payload, cart = []) {
       product_id: Number(item.product_id),
       quantity: Number(item.quantity) || 0,
       unit_price: Number(item.unit_price) || 0,
+      unit_cost: Number(item.unit_cost) || 0,
       line_total:
         item.line_total != null ? Number(item.line_total) : null,
     })),

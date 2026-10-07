@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Support\DataSync;
 use Illuminate\Http\Request;
 
 class ClientController extends Controller
@@ -27,7 +28,10 @@ class ClientController extends Controller
             $data['email'] = null;
         }
 
-        return response()->json(Client::create($data), 201);
+        $client = Client::create($data);
+        DataSync::bump();
+
+        return response()->json($client, 201);
     }
 
     public function show(Client $client)
@@ -45,11 +49,12 @@ class ClientController extends Controller
             'address' => 'nullable|string|max:255',
         ]);
 
-        if (array_key_exists('email') && empty($data['email'])) {
+        if (array_key_exists('email', $data) && empty($data['email'])) {
             $data['email'] = null;
         }
 
         $client->update($data);
+        DataSync::bump();
 
         return response()->json($client);
     }
@@ -57,6 +62,7 @@ class ClientController extends Controller
     public function destroy(Client $client)
     {
         $client->delete();
+        DataSync::bump();
 
         return response()->json(['message' => 'Client supprimé']);
     }

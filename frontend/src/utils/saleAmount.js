@@ -52,7 +52,8 @@ export function amountFromQuantity(quantity, unitPrice) {
 /** Valeur pour input number (point décimal, pas de locale). */
 export function formatQtyInputValue(quantity, unit = "kg", mode = "détail") {
   const q = Number(quantity) || 0;
-  if (mode === "gros" || !isWeightUnit(unit)) {
+  // Gros + kg: décimales OK ; pièces / non-poids: entiers
+  if (!isWeightUnit(unit)) {
     return String(Math.round(q));
   }
   const rounded = Math.round(q * 1000) / 1000;

@@ -12,18 +12,26 @@ use App\Models\Sale;
 use App\Models\Setting;
 use App\Models\StockMovement;
 use App\Models\User;
+use App\Support\DataSync;
 use App\Support\Permissions;
 use Illuminate\Http\Request;
 
 class AppStateController extends Controller
 {
+    public function syncVersion()
+    {
+        return response()->json([
+            'version' => DataSync::version(),
+        ]);
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
         $role = $user->role;
         $canViewAllSales = Permissions::can($role, Permissions::REPORTS_SALES);
 
-        $salesQuery = Sale::with('items')->latest();
+        $salesQuery = Sale::with(['items', 'user:id,name'])->latest();
         if (! $canViewAllSales) {
             $salesQuery->where('user_id', $user->id);
         }
@@ -34,6 +42,8 @@ class AppStateController extends Controller
             'type' => $sale->type,
             'client_id' => $sale->client_id,
             'client_name' => $sale->client_name,
+            'user_id' => $sale->user_id,
+            'user_name' => $sale->user?->name,
             'items' => $sale->items->map(fn ($item) => [
                 'product_id' => $item->product_id,
                 'quantity' => $item->quantity,

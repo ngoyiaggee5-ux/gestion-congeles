@@ -14,6 +14,8 @@ export default function PasswordField({
   dataLpignore = false,
   data1pIgnore = false,
   antiAutofill = false,
+  underline = false,
+  disabled = false,
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -29,9 +31,10 @@ export default function PasswordField({
   const inputType = antiAutofill || showPassword ? "text" : "password";
 
   return (
-    <Form.Group>
+    <Form.Group className={underline ? "login-field-inner" : undefined}>
       {label && <Form.Label htmlFor={id}>{label}</Form.Label>}
-      <InputGroup className="password-input-group">
+      <div className={underline ? "login-field-input password-input-group" : undefined}>
+        <InputGroup className={underline ? undefined : "password-input-group"}>
         <Form.Control
           id={id}
           name={name}
@@ -43,8 +46,11 @@ export default function PasswordField({
           onFocus={handleFocus}
           required={required}
           readOnly={antiAutofill && !focused}
+          disabled={disabled}
           autoComplete={antiAutofill ? "off" : autoComplete}
           spellCheck={false}
+          autoCapitalize="none"
+          autoCorrect="off"
           {...(dataLpignore || antiAutofill ? { "data-lpignore": "true" } : {})}
           {...(data1pIgnore || antiAutofill ? { "data-1p-ignore": true } : {})}
           {...(antiAutofill ? { "data-bwignore": "true", "data-form-type": "other" } : {})}
@@ -53,14 +59,18 @@ export default function PasswordField({
           type="button"
           className="password-toggle-btn"
           onClick={() => setShowPassword((visible) => !visible)}
+          disabled={disabled}
           aria-label={
             showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"
           }
+          aria-pressed={showPassword}
           title={showPassword ? "Masquer" : "Afficher"}
         >
           <i className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`} />
         </button>
       </InputGroup>
+      {underline && <span className="login-field-line" aria-hidden="true" />}
+      </div>
       {hint && <Form.Text className="text-muted">{hint}</Form.Text>}
     </Form.Group>
   );

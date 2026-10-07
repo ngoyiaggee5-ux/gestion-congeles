@@ -68,27 +68,35 @@ export const ROLE_LABELS = {
 
 export const ROLE_DESCRIPTIONS = {
   admin:
-    "Contrôle total : produits, stock, ventes, facturation, rapports, utilisateurs, paramètres et suppressions.",
+    "Administration : produits, stock, facturation, rapports, utilisateurs et paramètres. Ne peut pas vendre.",
   manager:
-    "Supervision : stock, rapports, produits et facturation. Pas de gestion des utilisateurs, paramètres ni suppressions.",
+    "Supervision : stock, rapports, produits, clients et facturation. Ne peut pas vendre ni gérer les utilisateurs.",
   vendeur:
-    "Vendre (détail, gros, panier, paiement) et gérer les clients. Pas de rapports, paramètres, ni suppressions.",
+    "Vendre (détail, gros, panier, paiement). Pas de clients, rapports, paramètres ni suppressions.",
 };
 
 const ALL = Object.values(PERMISSIONS);
 
+const ADMIN_NO_SALES = ALL.filter(
+  (permission) =>
+    ![
+      PERMISSIONS.salesDetail,
+      PERMISSIONS.salesGros,
+      PERMISSIONS.salesCart,
+      PERMISSIONS.salesPayment,
+      PERMISSIONS.salesDelete,
+      PERMISSIONS.cartClear,
+    ].includes(permission)
+);
+
 export const ROLE_PERMISSIONS = {
-  admin: ALL,
+  admin: ADMIN_NO_SALES,
   manager: [
     PERMISSIONS.dashboard,
     PERMISSIONS.productsView,
     PERMISSIONS.productsManage,
     PERMISSIONS.stockManage,
     PERMISSIONS.stockView,
-    PERMISSIONS.salesDetail,
-    PERMISSIONS.salesGros,
-    PERMISSIONS.salesCart,
-    PERMISSIONS.salesPayment,
     PERMISSIONS.billingGenerate,
     PERMISSIONS.billingPrint,
     PERMISSIONS.billingHistory,
@@ -96,7 +104,6 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.reportsSales,
     PERMISSIONS.reportsStock,
     PERMISSIONS.reportsProfit,
-    PERMISSIONS.cartClear,
   ],
   vendeur: [
     PERMISSIONS.dashboard,
@@ -106,7 +113,6 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.salesGros,
     PERMISSIONS.salesCart,
     PERMISSIONS.salesPayment,
-    PERMISSIONS.clientsManage,
     PERMISSIONS.billingHistory,
     PERMISSIONS.billingPrint,
     PERMISSIONS.cartClear,
@@ -114,7 +120,7 @@ export const ROLE_PERMISSIONS = {
 };
 
 export const ROUTE_PERMISSIONS = [
-  { path: "/", permission: PERMISSIONS.dashboard, exact: true },
+  { path: "/dashboard", permission: PERMISSIONS.dashboard, exact: true },
   { path: "/produits/ajouter", permission: PERMISSIONS.productsManage },
   { path: "/produits/modifier", permission: PERMISSIONS.productsManage },
   { path: "/produits/categories", permission: PERMISSIONS.productsManage },
@@ -171,5 +177,5 @@ export function getDefaultHomeForRole(role) {
   const normalized = normalizeRole(role);
   if (normalized === ROLES.manager) return "/rapports/ventes";
   if (normalized === ROLES.vendeur) return "/ventes/detail";
-  return "/";
+  return "/dashboard";
 }

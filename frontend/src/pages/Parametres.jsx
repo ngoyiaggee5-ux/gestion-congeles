@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Alert, Button, Col, Form, Nav, Row, Tab } from "react-bootstrap";
 import PageHeader from "../components/PageHeader";
 import { useApp } from "../data/AppContext";
-import { formatCdfAsUsd } from "../utils/settings";
+import { formatCdfAsUsd, PALETTE_META, PALETTE_OPTIONS } from "../utils/settings";
 
 export default function Parametres() {
   const { data, updateSettings } = useApp();
@@ -27,6 +27,12 @@ export default function Parametres() {
   const selectTheme = async (theme) => {
     setDraft((prev) => ({ ...prev, theme }));
     await updateSettings({ theme });
+    setSaved(true);
+  };
+
+  const selectPalette = async (palette) => {
+    setDraft((prev) => ({ ...prev, palette }));
+    await updateSettings({ palette });
     setSaved(true);
   };
 
@@ -63,18 +69,18 @@ export default function Parametres() {
       {saved && <Alert variant="success">Paramètres enregistrés.</Alert>}
 
       <div className="panel">
-        <Tab.Container defaultActiveKey="police">
+        <Tab.Container defaultActiveKey="theme">
           <Nav variant="tabs" className="mb-4 settings-tabs">
+            <Nav.Item>
+              <Nav.Link eventKey="theme">
+                <i className="bi bi-palette2 me-1" />
+                Thème
+              </Nav.Link>
+            </Nav.Item>
             <Nav.Item>
               <Nav.Link eventKey="police">
                 <i className="bi bi-fonts me-1" />
                 Police
-              </Nav.Link>
-            </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="theme">
-                <i className="bi bi-moon-stars me-1" />
-                Thème
               </Nav.Link>
             </Nav.Item>
             <Nav.Item>
@@ -86,6 +92,65 @@ export default function Parametres() {
           </Nav>
 
           <Tab.Content>
+            <Tab.Pane eventKey="theme">
+              <p className="text-muted mb-3">
+                Un seul thème pour tout le magasin : enregistré sur le serveur.
+                Quand quelqu’un le change, les autres postes le reçoivent
+                automatiquement (connexion et synchronisation).
+              </p>
+
+              <h3 className="settings-section-title">Mode</h3>
+              <Row className="g-3 mb-4">
+                {[
+                  { id: "light", label: "Clair", icon: "bi-sun" },
+                  { id: "dark", label: "Sombre", icon: "bi-moon" },
+                ].map((theme) => (
+                  <Col xs={6} key={theme.id}>
+                    <button
+                      type="button"
+                      className={`theme-choice ${draft.theme === theme.id ? "active" : ""}`}
+                      onClick={() => selectTheme(theme.id)}
+                    >
+                      <i className={`bi ${theme.icon} me-2`} />
+                      {theme.label}
+                    </button>
+                  </Col>
+                ))}
+              </Row>
+
+              <h3 className="settings-section-title">Couleurs</h3>
+              <Row className="g-3">
+                {PALETTE_OPTIONS.map((id) => {
+                  const meta = PALETTE_META[id];
+                  const active = (draft.palette || "forest") === id;
+                  return (
+                    <Col xs={12} sm={6} lg={4} key={id}>
+                      <button
+                        type="button"
+                        className={`palette-choice ${active ? "active" : ""}`}
+                        onClick={() => selectPalette(id)}
+                        aria-pressed={active}
+                      >
+                        <span className="palette-swatches" aria-hidden="true">
+                          {meta.swatches.map((color) => (
+                            <span
+                              key={color}
+                              className="palette-swatch"
+                              style={{ background: color }}
+                            />
+                          ))}
+                        </span>
+                        <span className="palette-choice-text">
+                          <strong>{meta.label}</strong>
+                          <small>{meta.description}</small>
+                        </span>
+                      </button>
+                    </Col>
+                  );
+                })}
+              </Row>
+            </Tab.Pane>
+
             <Tab.Pane eventKey="police">
               <Row className="g-3">
                 <Col md={6}>
@@ -109,30 +174,6 @@ export default function Parametres() {
                     <p>Gestion de congelé — ventes, stock et facturation.</p>
                   </div>
                 </Col>
-              </Row>
-            </Tab.Pane>
-
-            <Tab.Pane eventKey="theme">
-              <p className="text-muted mb-3">
-                Le thème s’applique immédiatement à toute l’application et reste
-                actif même après navigation.
-              </p>
-              <Row className="g-3">
-                {[
-                  { id: "light", label: "Clair", icon: "bi-sun" },
-                  { id: "dark", label: "Sombre", icon: "bi-moon" },
-                ].map((theme) => (
-                  <Col md={6} key={theme.id}>
-                    <button
-                      type="button"
-                      className={`theme-choice ${draft.theme === theme.id ? "active" : ""}`}
-                      onClick={() => selectTheme(theme.id)}
-                    >
-                      <i className={`bi ${theme.icon} me-2`} />
-                      Thème {theme.label}
-                    </button>
-                  </Col>
-                ))}
               </Row>
             </Tab.Pane>
 

@@ -9,7 +9,7 @@ export function useStockAlertListener() {
       const { product, remainingStock } = event.detail || {};
       if (!product) return;
       setAlert({ product, remainingStock });
-      window.setTimeout(() => setAlert(null), 5000);
+      window.setTimeout(() => setAlert(null), 9000);
     };
 
     window.addEventListener("mbala:stock-alert", handler);
@@ -17,7 +17,7 @@ export function useStockAlertListener() {
   }, []);
 
   const StockAlertBanner = alert ? (
-    <Alert variant="warning" className="stock-alert-banner mb-0">
+    <Alert variant="warning" className="stock-alert-banner stock-alert-blink mb-0">
       <i className="bi bi-exclamation-triangle-fill me-2" />
       Stock faible : <strong>{alert.product.name}</strong> — il restera{" "}
       <strong>{Math.max(alert.remainingStock, 0)}</strong> {alert.product.unit} après cette vente.

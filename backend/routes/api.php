@@ -24,7 +24,7 @@ Route::get('/health', fn () => response()->json([
 Route::prefix('v1')->group(function () {
     Route::get('/public/invoices/verify/{number}', [InvoiceController::class, 'verify'])
         ->middleware('throttle:20,1');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+    Route::post('/login', [AuthController::class, 'login']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -35,6 +35,8 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/app-state', [AppStateController::class, 'index'])
             ->middleware('role:'.P::DASHBOARD);
+        Route::get('/sync-version', [AppStateController::class, 'syncVersion'])
+            ->middleware(['role:'.P::DASHBOARD, 'throttle:60,1']);
 
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->middleware('role:'.P::DASHBOARD);

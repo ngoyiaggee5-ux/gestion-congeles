@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Badge, Col, Form, Row } from "react-bootstrap";
+import { Badge, Form } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import PageHeader from "../../components/PageHeader";
 import SmartSuggest from "../../components/SmartSuggest";
@@ -8,7 +8,23 @@ import VfButton from "../../components/VfButton";
 import { useToast } from "../../components/ToastStack";
 import { useApp } from "../../data/AppContext";
 import { getCategoryIcon } from "../../utils/categoryIcons";
-import { cartLineTotal, formatCartQuantity, quantityFromAmount } from "../../utils/saleAmount";
+import {
+  cartLineTotal,
+  formatCartQuantity,
+  quantityFromAmount,
+  isWeightUnit,
+} from "../../utils/saleAmount";
+
+function parseSellQty(raw, unit, maxStock) {
+  const parsed = isWeightUnit(unit)
+    ? parseFloat(String(raw).trim().replace(",", "."))
+    : parseInt(String(raw).trim(), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  const qty = isWeightUnit(unit)
+    ? Math.round(parsed * 1000) / 1000
+    : Math.round(parsed);
+  return Math.min(qty, maxStock);
+}
 
 export default function VenteMode({ mode }) {
   const {
@@ -24,6 +40,7 @@ export default function VenteMode({ mode }) {
   const [query, setQuery] = useState("");
   const [quickAmount, setQuickAmount] = useState("");
   const [amountByProduct, setAmountByProduct] = useState({});
+  const [qtyByProduct, setQtyByProduct] = useState({});
   const isGros = mode === "gros";
   const canSellByAmount = !isGros;
 
@@ -59,9 +76,45 @@ export default function VenteMode({ mode }) {
     if (quickAmount && !query.trim()) setQuickAmount("");
   };
 
+  const sellByQty = (product, qtyRaw) => {
+    const qty = parseSellQty(qtyRaw, product.unit, product.stock);
+    if (!qty) {
+      toast(
+        isWeightUnit(product.unit)
+          ? "Indiquez un nombre de kilos valide."
+          : "Indiquez une quantité valide.",
+        "danger"
+      );
+      return;
+    }
+    if (qty > product.stock) {
+      toast(`Stock insuffisant (${product.stock} ${product.unit}).`, "danger");
+      return;
+    }
+    addToCart(product.id, qty, mode);
+    toast(`${product.name} · ${formatCartQuantity(qty, product.unit)} ajouté`);
+    setQtyByProduct((prev) => ({ ...prev, [product.id]: "" }));
+  };
+
   const pickProduct = (item) => {
     const product = data.products.find((p) => p.id === item.id);
     if (!product || product.stock <= 0) return;
+
+    if (isGros) {
+      const qtyRaw = qtyByProduct[product.id] || (isWeightUnit(product.unit) ? "" : "1");
+      if (qtyRaw) {
+        sellByQty(product, qtyRaw);
+      } else {
+        toast(
+          isWeightUnit(product.unit)
+            ? "Saisissez le nombre de kilos puis validez."
+            : "Saisissez la quantité puis validez.",
+          "warning"
+        );
+      }
+      setQuery("");
+      return;
+    }
 
     const amount = quickAmount.trim();
     if (canSellByAmount && amount) {
@@ -83,6 +136,20 @@ export default function VenteMode({ mode }) {
   };
 
   const addProduct = (product, cardAmount) => {
+    if (isGros) {
+      const raw = qtyByProduct[product.id];
+      if (raw?.trim()) {
+        sellByQty(product, raw);
+        return;
+      }
+      if (!isWeightUnit(product.unit)) {
+        sellByQty(product, "1");
+        return;
+      }
+      toast("Saisissez le nombre de kilos.", "warning");
+      return;
+    }
+
     if (canSellByAmount && cardAmount.trim()) {
       sellByAmount(product, cardAmount);
       return;
@@ -97,7 +164,7 @@ export default function VenteMode({ mode }) {
         title={isGros ? "Vente en gros" : "Caisse détail"}
         subtitle={
           isGros
-            ? "Sélection rapide — produits populaires et stock disponible en priorité."
+            ? "Saisissez les kilos (ou la quantité) puis ajoutez au panier."
             : "Tapez, choisissez, encaissez. Vente par quantité ou montant client."
         }
         badge={isGros ? "Gros" : "Caisse"}
@@ -146,8 +213,10 @@ export default function VenteMode({ mode }) {
           const status = stockStatus(p);
           const unitPrice = isGros ? p.price_wholesale : p.price_retail;
           const cardAmount = amountByProduct[p.id] ?? "";
+          const cardQty = qtyByProduct[p.id] ?? "";
           const qtyPreview = previewAmount(p, cardAmount);
           const categoryName = getCategoryName(p.category_id);
+          const weight = isWeightUnit(p.unit);
 
           return (
             <article
@@ -180,6 +249,43 @@ export default function VenteMode({ mode }) {
                 <div className="product-stock-warning">
                   <i className="bi bi-exclamation-triangle-fill me-1" />
                   {status === "out" ? "Rupture de stock" : "Stock sous le seuil minimum"}
+                </div>
+              )}
+
+              {isGros && (
+                <div className="sale-by-amount-block">
+                  <Form.Label className="small fw-semibold mb-1">
+                    {weight ? "Kilos" : "Quantité"} ({p.unit})
+                  </Form.Label>
+                  <Form.Control
+                    type="number"
+                    min={weight ? "0.001" : "1"}
+                    step={weight ? "0.001" : "1"}
+                    placeholder={weight ? "Ex. 12.5" : "Ex. 10"}
+                    value={cardQty}
+                    disabled={p.stock <= 0}
+                    onChange={(e) =>
+                      setQtyByProduct((prev) => ({
+                        ...prev,
+                        [p.id]: e.target.value,
+                      }))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && cardQty) {
+                        e.preventDefault();
+                        sellByQty(p, cardQty);
+                      }
+                    }}
+                    aria-label={`${weight ? "Kilos" : "Quantité"} pour ${p.name}`}
+                  />
+                  {cardQty && parseSellQty(cardQty, p.unit, p.stock) > 0 && (
+                    <div className="small text-muted mt-1">
+                      ≈{" "}
+                      {formatMoney(
+                        Math.round(parseSellQty(cardQty, p.unit, p.stock) * unitPrice)
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -223,9 +329,14 @@ export default function VenteMode({ mode }) {
                 onClick={() => addProduct(p, cardAmount)}
                 icon="bi-plus-circle"
               >
-                {canSellByAmount && cardAmount.trim()
-                  ? `Vendre ${formatMoney(Number(cardAmount))}`
-                  : "Ajouter au panier"}
+                {isGros && cardQty.trim()
+                  ? `Ajouter ${formatCartQuantity(
+                      parseSellQty(cardQty, p.unit, p.stock) || 0,
+                      p.unit
+                    )}`
+                  : canSellByAmount && cardAmount.trim()
+                    ? `Vendre ${formatMoney(Number(cardAmount))}`
+                    : "Ajouter au panier"}
               </VfButton>
             </article>
           );

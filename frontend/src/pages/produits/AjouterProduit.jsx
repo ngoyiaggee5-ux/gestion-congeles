@@ -11,6 +11,7 @@ const empty = {
   unit: "kg",
   price_retail: "",
   price_wholesale: "",
+  cost_price: "",
   stock: "0",
   min_stock: "10",
   description: "",
@@ -32,6 +33,7 @@ export default function AjouterProduit() {
       category_id: Number(form.category_id),
       price_retail: Number(form.price_retail),
       price_wholesale: Number(form.price_wholesale),
+      cost_price: Number(form.cost_price) || 0,
       stock: Number(form.stock),
       min_stock: Number(form.min_stock),
     });
@@ -96,9 +98,9 @@ export default function AjouterProduit() {
                 <Form.Control name="unit" value={form.unit} onChange={onChange} />
               </Form.Group>
             </Col>
-            <Col md={4}>
+            <Col xs={6} md={2}>
               <Form.Group>
-                <Form.Label>Prix détail (XOF)</Form.Label>
+                <Form.Label>Prix détail (CDF)</Form.Label>
                 <Form.Control
                   type="number"
                   name="price_retail"
@@ -108,9 +110,9 @@ export default function AjouterProduit() {
                 />
               </Form.Group>
             </Col>
-            <Col md={4}>
+            <Col xs={6} md={2}>
               <Form.Group>
-                <Form.Label>Prix gros (XOF)</Form.Label>
+                <Form.Label>Prix gros (CDF)</Form.Label>
                 <Form.Control
                   type="number"
                   name="price_wholesale"
@@ -120,7 +122,23 @@ export default function AjouterProduit() {
                 />
               </Form.Group>
             </Col>
-            <Col md={2}>
+            <Col xs={12} md={3}>
+              <Form.Group>
+                <Form.Label>Coût d&apos;achat (CDF)</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="cost_price"
+                  value={form.cost_price}
+                  onChange={onChange}
+                  min="0"
+                  placeholder="Prix fournisseur"
+                />
+                <Form.Text className="text-muted">
+                  Utilisé pour le bénéfice réel.
+                </Form.Text>
+              </Form.Group>
+            </Col>
+            <Col xs={6} md={3}>
               <Form.Group>
                 <Form.Label>Stock</Form.Label>
                 <Form.Control
@@ -128,10 +146,11 @@ export default function AjouterProduit() {
                   name="stock"
                   value={form.stock}
                   onChange={onChange}
+                  className="input-qty-field"
                 />
               </Form.Group>
             </Col>
-            <Col md={2}>
+            <Col xs={6} md={2}>
               <Form.Group>
                 <Form.Label>Seuil</Form.Label>
                 <Form.Control
@@ -139,6 +158,7 @@ export default function AjouterProduit() {
                   name="min_stock"
                   value={form.min_stock}
                   onChange={onChange}
+                  className="input-qty-field"
                 />
               </Form.Group>
             </Col>

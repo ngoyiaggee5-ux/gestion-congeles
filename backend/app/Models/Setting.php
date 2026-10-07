@@ -16,6 +16,7 @@ class Setting extends Model
         $defaults = [
             'font' => 'dm-sans',
             'theme' => 'light',
+            'palette' => 'forest',
             'currency' => 'CDF',
             'usdRate' => 2800,
         ];

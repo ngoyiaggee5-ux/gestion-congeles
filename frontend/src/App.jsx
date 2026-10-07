@@ -5,6 +5,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import RoleGuard from "./components/RoleGuard";
 import AppLayout from "./components/AppLayout";
 import Login from "./pages/Login";
+import Accueil from "./pages/Accueil";
 import Dashboard from "./pages/Dashboard";
 import AjouterProduit from "./pages/produits/AjouterProduit";
 import ModifierProduit from "./pages/produits/ModifierProduit";
@@ -37,12 +38,14 @@ export default function App() {
       <ToastProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<Accueil />} />
+          <Route path="/accueil" element={<Navigate to="/" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/verifier-facture" element={<VerifierFacture />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route element={<RoleGuard />}>
-              <Route index element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="produits/ajouter" element={<AjouterProduit />} />
               <Route path="produits/modifier" element={<ModifierProduit />} />
               <Route path="produits/categories" element={<Categories />} />
@@ -72,7 +75,7 @@ export default function App() {
               <Route path="rapports/benefices" element={<RapportBenefices />} />
               <Route path="parametres" element={<Parametres />} />
               <Route path="a-propos" element={<APropos />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Route>
             </Route>
           </Route>

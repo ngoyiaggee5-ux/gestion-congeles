@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Support\DataSync;
+use App\Support\ProductCost;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -39,6 +41,15 @@ class StockMovementController extends Controller
             }
 
             if ($data['type'] === 'entrée') {
+                $unitCost = (int) ($data['unit_cost'] ?? 0);
+                if ($unitCost > 0) {
+                    ProductCost::applyInbound(
+                        $product,
+                        (float) $data['quantity'],
+                        $unitCost
+                    );
+                    $product->refresh();
+                }
                 $product->increment('stock', $data['quantity']);
             } else {
                 $product->decrement('stock', $data['quantity']);
@@ -48,6 +59,8 @@ class StockMovementController extends Controller
                 ...$data,
                 'unit_cost' => $data['unit_cost'] ?? 0,
             ]);
+
+            DataSync::bump();
 
             return response()->json($movement->load('product'), 201);
         });
