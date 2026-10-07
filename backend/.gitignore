@@ -1,32 +1,29 @@
-# Secrets & env
-.env
-.env.*
-!.env.example
+# backend/.gitignore
+# Fichiers de diagnostic
+public/diagnostic.php
+public/ping-db.php
 
-# Dependencies & build
-/vendor
-/node_modules
+# Fichiers temporaires
+~$*
+*.tmp
+Untitled
+
+# Fichiers batch
+*.bat
+
+# Variables d'environnement
+.env
+.env.local
+.env.*.local
 
 # Laravel
-/storage/*.key
-/storage/pail
-/public/storage
-/public/hot
-/bootstrap/cache/*.php
-!/bootstrap/cache/.gitignore
-
-# Logs & cache data
 /storage/logs/*
-!/storage/logs/.gitignore
-/storage/framework/cache/data/*
-!/storage/framework/cache/data/.gitignore
+/bootstrap/cache/*
+/vendor/
+node_modules/
 
-# SQLite / local DB dumps
-*.sqlite
-*.sqlite-journal
-
-# OS / IDE
-.DS_Store
-Thumbs.db
-.idea
-.vscode
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
